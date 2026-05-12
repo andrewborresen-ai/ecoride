@@ -54,7 +54,7 @@ export default function ShiftDetailScreen() {
   const now = new Date();
   const shiftStarted = shift?.startTime ? new Date(shift.startTime) <= now : false;
   const shiftEnded = shift?.endTime ? new Date(shift.endTime) < now : false;
-  const canUnlock = isConfirmed && !!assignment?.id && shiftStarted && !shiftEnded;
+  const canUnlock = isConfirmed && !!assignment?.id;
 
   const handleUnlock = () => {
     if (!assignment?.id) return;

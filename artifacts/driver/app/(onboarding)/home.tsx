@@ -123,9 +123,9 @@ export default function OnboardingHome() {
           <Feather name="zap" size={22} color="#fff" />
         </View>
         <View style={{ flex: 1 }}>
-          <Text style={[s.title, { color: colors.foreground }]}>Driver Application</Text>
+          <Text style={[s.title, { color: colors.foreground }]}>Application Review</Text>
           <Text style={[s.subtitle, { color: colors.mutedForeground }]}>
-            {completedCount} of {steps.length} sections complete
+            {completedCount} of {steps.length} sections complete · Step 7 of 7
           </Text>
         </View>
       </View>
@@ -187,11 +187,21 @@ export default function OnboardingHome() {
             </Pressable>
           ))}
 
-          {!allComplete && (
+          {allComplete ? (
+            <View style={[s.reviewCard, { backgroundColor: colors.primary + "15", borderColor: colors.primary + "40" }]}>
+              <Feather name="check-circle" size={16} color={colors.primary} />
+              <View style={{ flex: 1 }}>
+                <Text style={[s.reviewTitle, { color: colors.primary }]}>Ready to Submit</Text>
+                <Text style={[s.reviewBody, { color: colors.foreground }]}>
+                  All sections are complete. Review your details above, then submit your application for EcoRide fleet approval.
+                </Text>
+              </View>
+            </View>
+          ) : (
             <View style={[s.infoCard, { backgroundColor: colors.muted, borderColor: colors.border }]}>
               <Feather name="info" size={16} color={colors.mutedForeground} />
               <Text style={[s.infoText, { color: colors.mutedForeground }]}>
-                Complete all {steps.length} sections to enable application submission.
+                Complete all {steps.length} sections above to submit your application for review.
               </Text>
             </View>
           )}
@@ -242,6 +252,9 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     completeText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
     infoCard: { flexDirection: "row", alignItems: "flex-start", gap: 10, borderRadius: 12, borderWidth: 1, padding: 14, marginTop: 4 },
     infoText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18 },
+    reviewCard: { flexDirection: "row", alignItems: "flex-start", gap: 10, borderRadius: 12, borderWidth: 1.5, padding: 14, marginTop: 4 },
+    reviewTitle: { fontSize: 14, fontFamily: "Inter_700Bold", marginBottom: 2 },
+    reviewBody: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18 },
     footer: { paddingHorizontal: 24, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.background },
     submitBtn: { height: 54, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
     submitBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },

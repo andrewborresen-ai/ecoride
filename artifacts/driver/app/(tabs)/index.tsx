@@ -64,11 +64,7 @@ export default function DashboardScreen() {
     ? new Date(nextShift.shift.startTime) <= now : false;
   const shiftEnded = nextShift?.shift?.endTime
     ? new Date(nextShift.shift.endTime) < now : false;
-  const hasActiveShift =
-    !!vehicleAssignment &&
-    nextShift?.allocation?.status === "confirmed" &&
-    shiftStarted &&
-    !shiftEnded;
+  const hasAssignment = !!vehicleAssignment;
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -169,11 +165,36 @@ export default function DashboardScreen() {
                         .filter(Boolean).join(" ")}
                     </Text>
                   </View>
-                  <View style={[s.vehicleTypeChip, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
-                    <Feather name="zap" size={14} color="#fff" />
-                    <Text style={s.vehicleTypeText}>{vehicleAssignment.vehicle.fleetType?.toUpperCase() ?? "EV"}</Text>
+                    <View style={{ alignItems: "flex-end", gap: 4 }}>
+                    <View style={[s.vehicleTypeChip, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
+                      <Feather name="zap" size={14} color="#fff" />
+                      <Text style={s.vehicleTypeText}>{vehicleAssignment.vehicle.fleetType?.toUpperCase() ?? "EV"}</Text>
+                    </View>
+                    {vehicleAssignment.vehicle.status && (
+                      <View style={[s.vehicleStatusChip, { backgroundColor: vehicleAssignment.vehicle.status === "active" ? "rgba(255,255,255,0.15)" : "rgba(239,68,68,0.3)" }]}>
+                        <Text style={s.vehicleStatusText}>{vehicleAssignment.vehicle.status.toUpperCase()}</Text>
+                      </View>
+                    )}
                   </View>
                 </View>
+
+                {nextShift?.shift && (
+                  <View style={s.shiftWindowRow}>
+                    <Feather name="clock" size={13} color="rgba(255,255,255,0.75)" />
+                    <Text style={s.shiftWindowText}>
+                      {nextShift.shift.title
+                        ? `${nextShift.shift.title} · `
+                        : ""}
+                      {formatDate(nextShift.shift.startTime)}{" "}
+                      {formatTime(nextShift.shift.startTime)}–{formatTime(nextShift.shift.endTime)}
+                    </Text>
+                    {shiftStarted && !shiftEnded && (
+                      <View style={s.liveChip}>
+                        <Text style={s.liveChipText}>LIVE</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
 
                 {displayResult && (
                   <View style={[
@@ -191,33 +212,18 @@ export default function DashboardScreen() {
                 <Pressable
                   style={({ pressed }) => [
                     s.unlockBtn,
-                    {
-                      backgroundColor: hasActiveShift
-                        ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.07)",
-                      opacity: pressed && hasActiveShift ? 0.75 : 1,
-                    },
+                    { backgroundColor: "rgba(255,255,255,0.18)", opacity: pressed || unlocking ? 0.75 : 1 },
                   ]}
                   onPress={handleUnlock}
-                  disabled={!hasActiveShift || unlocking}
+                  disabled={!hasAssignment || unlocking}
                   testID="unlock-btn"
                 >
                   {unlocking ? (
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
                     <>
-                      <Feather
-                        name="unlock" size={16}
-                        color={hasActiveShift ? "#fff" : "rgba(255,255,255,0.4)"}
-                      />
-                      <Text style={[s.unlockBtnText, { color: hasActiveShift ? "#fff" : "rgba(255,255,255,0.4)" }]}>
-                        {!nextShift
-                          ? "No Active Shift"
-                          : !shiftStarted
-                          ? `Unlock from ${formatTime(nextShift.shift.startTime)}`
-                          : shiftEnded
-                          ? "Shift Ended"
-                          : "Unlock Vehicle"}
-                      </Text>
+                      <Feather name="unlock" size={16} color="#fff" />
+                      <Text style={[s.unlockBtnText, { color: "#fff" }]}>Unlock Vehicle</Text>
                     </>
                   )}
                 </Pressable>
@@ -322,6 +328,12 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     vehicleCardMeta: { color: "rgba(255,255,255,0.75)", fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
     vehicleTypeChip: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
     vehicleTypeText: { color: "#fff", fontSize: 12, fontFamily: "Inter_600SemiBold" },
+    vehicleStatusChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
+    vehicleStatusText: { color: "#fff", fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+    shiftWindowRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+    shiftWindowText: { color: "rgba(255,255,255,0.85)", fontSize: 13, fontFamily: "Inter_400Regular", flex: 1 },
+    liveChip: { backgroundColor: "rgba(255,255,255,0.25)", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 10 },
+    liveChipText: { color: "#fff", fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.8 },
     unlockResultBox: { flexDirection: "row", alignItems: "center", gap: 8, padding: 10, borderRadius: 10 },
     unlockResultText: { color: "#fff", fontSize: 12, fontFamily: "Inter_500Medium", flex: 1 },
     unlockBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 50, borderRadius: 14 },
