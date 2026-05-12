@@ -19,6 +19,7 @@ const CreateAgreementBody = z.object({
 const PatchAgreementBody = z.object({
   title: z.string().min(1).optional(),
   content: z.string().min(1).optional(),
+  pdfPath: z.string().optional(),
 }).strict();
 
 router.get("/v1/admin/agreements", requireAdmin, async (_req, res): Promise<void> => {

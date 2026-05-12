@@ -7,6 +7,7 @@ export const agreementsTable = pgTable("agreements", {
   title: text("title").notNull(),
   version: text("version").notNull(),
   content: text("content").notNull(),
+  pdfPath: text("pdf_path"),
   fleetType: text("fleet_type"),
   status: text("status").notNull().default("draft"),
   activatedAt: timestamp("activated_at", { withTimezone: true }),

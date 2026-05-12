@@ -91,9 +91,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Primary KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         {loadingSummary ? (
-          Array(4).fill(0).map((_, i) => <KPI_SKELETON key={i} />)
+          Array(7).fill(0).map((_, i) => <KPI_SKELETON key={i} />)
         ) : (
           <>
             <Card className="border-l-4 border-l-gray-400">
@@ -114,7 +114,7 @@ export default function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-[#1C2126]">{summary?.approvedDrivers ?? approvedTotal}</div>
-                <p className="text-xs text-gray-400 mt-1">Active in the fleet</p>
+                <p className="text-xs text-gray-400 mt-1">Active in fleet</p>
               </CardContent>
             </Card>
 
@@ -131,7 +131,7 @@ export default function DashboardPage() {
 
             <Card className="border-l-4 border-l-blue-400">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500">Active Vehicles</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-500">Total Vehicles</CardTitle>
                 <Car className="h-4 w-4 text-blue-400" />
               </CardHeader>
               <CardContent>
@@ -142,7 +142,7 @@ export default function DashboardPage() {
 
             <Card className="border-l-4 border-l-purple-400">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500">Open Shifts This Week</CardTitle>
+                <CardTitle className="text-sm font-medium text-gray-500">Open Shifts (Week)</CardTitle>
                 <CalendarDays className="h-4 w-4 text-purple-400" />
               </CardHeader>
               <CardContent>
@@ -150,6 +150,36 @@ export default function DashboardPage() {
                 <p className="text-xs text-gray-400 mt-1">{format(now, "'Week of' MMM d")}</p>
               </CardContent>
             </Card>
+
+            <Link href="/shifts">
+              <Card className={`border-l-4 cursor-pointer hover:shadow-md transition-shadow ${(summary?.shiftsRequiringAllocation ?? shiftsNeedingAlloc) > 0 ? "border-l-amber-500 bg-amber-50" : "border-l-gray-300"}`}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Shifts Need Allocation</CardTitle>
+                  <AlertCircle className={`h-4 w-4 ${(summary?.shiftsRequiringAllocation ?? shiftsNeedingAlloc) > 0 ? "text-amber-500" : "text-gray-400"}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-3xl font-bold ${(summary?.shiftsRequiringAllocation ?? shiftsNeedingAlloc) > 0 ? "text-amber-600" : "text-[#1C2126]"}`}>
+                    {summary?.shiftsRequiringAllocation ?? shiftsNeedingAlloc}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">Open, under capacity</p>
+                </CardContent>
+              </Card>
+            </Link>
+
+            <Link href="/earnings">
+              <Card className={`border-l-4 cursor-pointer hover:shadow-md transition-shadow ${(summary?.earningsPendingPublish ?? 0) > 0 ? "border-l-yellow-500 bg-yellow-50" : "border-l-gray-300"}`}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">Earnings to Publish</CardTitle>
+                  <DollarSign className={`h-4 w-4 ${(summary?.earningsPendingPublish ?? 0) > 0 ? "text-yellow-600" : "text-gray-400"}`} />
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-3xl font-bold ${(summary?.earningsPendingPublish ?? 0) > 0 ? "text-yellow-700" : "text-[#1C2126]"}`}>
+                    {summary?.earningsPendingPublish ?? 0}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">Draft records</p>
+                </CardContent>
+              </Card>
+            </Link>
           </>
         )}
       </div>

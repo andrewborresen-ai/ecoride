@@ -215,9 +215,9 @@ export default function ShiftDetailPage() {
               variant="outline"
               className="h-7 px-2 border-[#3DB324] text-[#3DB324] hover:bg-[#3DB324] hover:text-white"
               onClick={() => handleConfirm(a.id)}
-              disabled={confirmAlloc.isPending}
+              disabled={confirmAlloc.isPending || !!isAtCapacity}
               data-testid={`btn-confirm-${a.id}`}
-              title="Confirm allocation"
+              title={isAtCapacity ? "Shift is at full capacity" : "Confirm allocation"}
             >
               <Check className="h-3.5 w-3.5" />
             </Button>
