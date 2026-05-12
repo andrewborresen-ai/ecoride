@@ -1,7 +1,9 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   View, Text, Pressable, StyleSheet, ActivityIndicator, Alert, Platform, ScrollView, TextInput,
+  PanResponder, GestureResponderEvent,
 } from "react-native";
+import Svg, { Path } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -24,6 +26,102 @@ function formatDateTime(date: Date) {
   });
 }
 
+interface Point {
+  x: number;
+  y: number;
+}
+
+interface Stroke {
+  points: Point[];
+}
+
+function strokeToPath(stroke: Stroke): string {
+  if (stroke.points.length < 2) return "";
+  const [first, ...rest] = stroke.points;
+  return `M${first.x},${first.y} ` + rest.map((p) => `L${p.x},${p.y}`).join(" ");
+}
+
+const PAD_HEIGHT = 120;
+
+function SignaturePad({
+  strokes,
+  onStrokesChange,
+  color,
+  borderColor,
+  backgroundColor,
+  disabled,
+}: {
+  strokes: Stroke[];
+  onStrokesChange: (s: Stroke[]) => void;
+  color: string;
+  borderColor: string;
+  backgroundColor: string;
+  disabled?: boolean;
+}) {
+  const currentStroke = useRef<Point[]>([]);
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => !disabled,
+      onMoveShouldSetPanResponder: () => !disabled,
+      onPanResponderGrant: (e: GestureResponderEvent) => {
+        const { locationX, locationY } = e.nativeEvent;
+        currentStroke.current = [{ x: locationX, y: locationY }];
+      },
+      onPanResponderMove: (e: GestureResponderEvent) => {
+        const { locationX, locationY } = e.nativeEvent;
+        currentStroke.current = [...currentStroke.current, { x: locationX, y: locationY }];
+        onStrokesChange([...strokes, { points: currentStroke.current }]);
+      },
+      onPanResponderRelease: () => {
+        if (currentStroke.current.length > 1) {
+          onStrokesChange([...strokes, { points: currentStroke.current }]);
+        }
+        currentStroke.current = [];
+      },
+    })
+  ).current;
+
+  const allPaths = strokes.map((s) => strokeToPath(s)).filter(Boolean);
+
+  return (
+    <View
+      style={[
+        sigStyles.pad,
+        { borderColor, backgroundColor, opacity: disabled ? 0.4 : 1 },
+      ]}
+      {...(disabled ? {} : panResponder.panHandlers)}
+    >
+      {allPaths.length === 0 && (
+        <Text style={[sigStyles.placeholder, { color: borderColor }]}>
+          Draw your signature here
+        </Text>
+      )}
+      <Svg style={StyleSheet.absoluteFill} width="100%" height={PAD_HEIGHT}>
+        {allPaths.map((d, i) => (
+          <Path key={i} d={d} stroke={color} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        ))}
+      </Svg>
+    </View>
+  );
+}
+
+const sigStyles = StyleSheet.create({
+  pad: {
+    height: PAD_HEIGHT,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  placeholder: {
+    fontSize: 13,
+    fontFamily: "Inter_400Regular",
+    fontStyle: "italic",
+  },
+});
+
 export default function AgreementStep() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -38,14 +136,26 @@ export default function AgreementStep() {
 
   const defaultName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ");
   const [legalName, setLegalName] = useState(defaultName);
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [scrolledToBottom, setScrolledToBottom] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const signatureTimestamp = new Date();
 
+  const hasDrawnSignature = strokes.length > 0;
+
+  const handleClearSignature = () => {
+    setStrokes([]);
+    Haptics.selectionAsync();
+  };
+
   const handleSign = async () => {
     if (!legalName || !accepted) {
       Alert.alert("Required", "Please enter your legal name and accept the agreement.");
+      return;
+    }
+    if (!hasDrawnSignature) {
+      Alert.alert("Signature Required", "Please draw your signature in the signature pad.");
       return;
     }
     if (!agreement) {
@@ -69,7 +179,7 @@ export default function AgreementStep() {
 
   const s = makeStyles(colors);
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 16);
-  const canSign = scrolledToBottom && legalName.trim().length > 0 && accepted;
+  const canSign = scrolledToBottom && legalName.trim().length > 0 && accepted && hasDrawnSignature;
 
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
@@ -127,56 +237,79 @@ export default function AgreementStep() {
               </View>
             )}
 
-            <View style={{ gap: 6, marginTop: 20 }}>
-              <Text style={{ fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground }}>
-                Your Legal Full Name
-              </Text>
-              <TextInput
-                style={[
-                  s.input,
-                  {
-                    borderColor: scrolledToBottom ? colors.border : colors.input,
-                    backgroundColor: colors.card,
-                    color: colors.foreground,
-                    opacity: scrolledToBottom ? 1 : 0.5,
-                  },
-                ]}
-                placeholder="As it appears on your SA ID"
-                placeholderTextColor={colors.mutedForeground}
-                value={legalName}
-                onChangeText={setLegalName}
-                autoCapitalize="words"
-                editable={scrolledToBottom}
-              />
-            </View>
-
-            <Pressable
-              style={[s.checkRow, { opacity: scrolledToBottom ? 1 : 0.5 }]}
-              onPress={() => { if (scrolledToBottom) { setAccepted((v) => !v); Haptics.selectionAsync(); } }}
-              disabled={!scrolledToBottom}
-            >
-              <View style={[s.checkbox, { borderColor: accepted ? colors.primary : colors.border, backgroundColor: accepted ? colors.primary : "transparent" }]}>
-                {accepted && <Feather name="check" size={12} color="#fff" />}
-              </View>
-              <Text style={[s.checkText, { color: colors.foreground }]}>
-                I have read the full agreement and agree to be bound by its terms
-              </Text>
-            </Pressable>
-
-            {accepted && legalName.trim() && (
-              <View style={[s.signaturePreview, { backgroundColor: colors.muted, borderColor: colors.border }]}>
-                <Feather name="edit-3" size={14} color={colors.primary} />
-                <Text style={[s.sigPreviewText, { color: colors.foreground }]}>
-                  Signed electronically as{" "}
-                  <Text style={{ fontFamily: "Inter_700Bold", color: colors.primary }}>
-                    {legalName.trim()}
-                  </Text>{"\n"}
-                  <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 11 }}>
-                    {formatDateTime(signatureTimestamp)} · Version {agreement.version}
-                  </Text>
+            <View style={[s.signingSection, { opacity: scrolledToBottom ? 1 : 0.45 }]}>
+              <View style={{ gap: 6, marginBottom: 16 }}>
+                <Text style={{ fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground }}>
+                  Your Legal Full Name
                 </Text>
+                <TextInput
+                  style={[
+                    s.input,
+                    {
+                      borderColor: scrolledToBottom ? colors.border : colors.input,
+                      backgroundColor: colors.card,
+                      color: colors.foreground,
+                    },
+                  ]}
+                  placeholder="As it appears on your SA ID"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={legalName}
+                  onChangeText={setLegalName}
+                  autoCapitalize="words"
+                  editable={scrolledToBottom}
+                />
               </View>
-            )}
+
+              <View style={{ gap: 8, marginBottom: 16 }}>
+                <View style={s.sigLabelRow}>
+                  <Text style={{ fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground }}>
+                    Draw Your Signature
+                  </Text>
+                  {hasDrawnSignature && (
+                    <Pressable onPress={handleClearSignature} style={s.clearBtn}>
+                      <Feather name="rotate-ccw" size={13} color={colors.mutedForeground} />
+                      <Text style={[s.clearBtnText, { color: colors.mutedForeground }]}>Clear</Text>
+                    </Pressable>
+                  )}
+                </View>
+                <SignaturePad
+                  strokes={strokes}
+                  onStrokesChange={setStrokes}
+                  color={colors.primary}
+                  borderColor={hasDrawnSignature ? colors.primary : colors.border}
+                  backgroundColor={colors.card}
+                  disabled={!scrolledToBottom}
+                />
+              </View>
+
+              <Pressable
+                style={[s.checkRow]}
+                onPress={() => { if (scrolledToBottom) { setAccepted((v) => !v); Haptics.selectionAsync(); } }}
+                disabled={!scrolledToBottom}
+              >
+                <View style={[s.checkbox, { borderColor: accepted ? colors.primary : colors.border, backgroundColor: accepted ? colors.primary : "transparent" }]}>
+                  {accepted && <Feather name="check" size={12} color="#fff" />}
+                </View>
+                <Text style={[s.checkText, { color: colors.foreground }]}>
+                  I have read the full agreement and agree to be bound by its terms
+                </Text>
+              </Pressable>
+
+              {accepted && legalName.trim() && hasDrawnSignature && (
+                <View style={[s.signaturePreview, { backgroundColor: colors.muted, borderColor: colors.border }]}>
+                  <Feather name="edit-3" size={14} color={colors.primary} />
+                  <Text style={[s.sigPreviewText, { color: colors.foreground }]}>
+                    Signed electronically as{" "}
+                    <Text style={{ fontFamily: "Inter_700Bold", color: colors.primary }}>
+                      {legalName.trim()}
+                    </Text>{"\n"}
+                    <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 11 }}>
+                      {formatDateTime(signatureTimestamp)} · Version {agreement.version}
+                    </Text>
+                  </Text>
+                </View>
+              )}
+            </View>
           </ScrollView>
 
           <View style={[s.footer, { paddingBottom: insets.bottom + 16 }]}>
@@ -229,8 +362,12 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     agreementContent: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 20 },
     scrollHint: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: 10, marginBottom: 8 },
     scrollHintText: { fontSize: 13, fontFamily: "Inter_400Regular" },
+    signingSection: { gap: 4 },
     input: { height: 52, borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 16, fontSize: 15, fontFamily: "Inter_400Regular" },
-    checkRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, marginTop: 16 },
+    sigLabelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+    clearBtn: { flexDirection: "row", alignItems: "center", gap: 4 },
+    clearBtnText: { fontSize: 12, fontFamily: "Inter_400Regular" },
+    checkRow: { flexDirection: "row", alignItems: "flex-start", gap: 12, marginTop: 8 },
     checkbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, alignItems: "center", justifyContent: "center", marginTop: 2 },
     checkText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
     signaturePreview: { flexDirection: "row", alignItems: "flex-start", gap: 10, borderRadius: 12, borderWidth: 1, padding: 14, marginTop: 16 },

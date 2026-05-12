@@ -7,7 +7,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { useColors } from "@/hooks/useColors";
-import { useGetMyEarnings } from "@workspace/api-client-react";
+import { useGetMyEarnings, getGetMyEarningsQueryKey } from "@workspace/api-client-react";
 import { apiData } from "@/types/api";
 import type { Earning } from "@/types/api";
 
@@ -31,39 +31,41 @@ function formatPeriod(from: string, to: string) {
   };
 }
 
-function filterEarnings(earnings: Earning[], filter: FilterType): Earning[] {
+function getDateParams(filter: FilterType): { from?: string; to?: string } {
   const now = new Date();
-  return earnings.filter((e) => {
-    if (e.status !== "published") return false;
-    if (filter === "all") return true;
-    const end = new Date(e.periodEnd);
-    if (filter === "week") {
-      const weekAgo = new Date(now);
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      return end >= weekAgo;
-    }
-    if (filter === "month") {
-      const monthAgo = new Date(now);
-      monthAgo.setMonth(monthAgo.getMonth() - 1);
-      return end >= monthAgo;
-    }
-    return true;
-  });
+  if (filter === "all") return {};
+  if (filter === "week") {
+    const from = new Date(now);
+    from.setDate(from.getDate() - 7);
+    from.setHours(0, 0, 0, 0);
+    return { from: from.toISOString(), to: now.toISOString() };
+  }
+  if (filter === "month") {
+    const from = new Date(now);
+    from.setMonth(from.getMonth() - 1);
+    from.setHours(0, 0, 0, 0);
+    return { from: from.toISOString(), to: now.toISOString() };
+  }
+  return {};
 }
 
 export default function EarningsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { data: earningsRes, isLoading, refetch } = useGetMyEarnings();
   const [filter, setFilter] = useState<FilterType>("month");
 
-  const allEarnings: Earning[] = apiData<Earning[]>(earningsRes) ?? [];
-  const earnings = filterEarnings(allEarnings, filter);
+  const dateParams = getDateParams(filter);
+  const { data: earningsRes, isLoading, refetch } = useGetMyEarnings(dateParams, {
+    query: { queryKey: getGetMyEarningsQueryKey(dateParams) },
+  });
 
-  const totalNet = earnings.reduce((sum, e) => sum + (e.netAmountCents ?? 0), 0);
-  const totalGross = earnings.reduce((sum, e) => sum + (e.grossAmountCents ?? 0), 0);
-  const totalTrips = earnings.reduce((sum, e) => sum + (e.tripCount ?? 0), 0);
+  const earnings: Earning[] = apiData<Earning[]>(earningsRes) ?? [];
+  const publishedEarnings = earnings.filter((e) => e.status === "published");
+
+  const totalNet = publishedEarnings.reduce((sum, e) => sum + (e.netAmountCents ?? 0), 0);
+  const totalGross = publishedEarnings.reduce((sum, e) => sum + (e.grossAmountCents ?? 0), 0);
+  const totalTrips = publishedEarnings.reduce((sum, e) => sum + (e.tripCount ?? 0), 0);
 
   const s = makeStyles(colors);
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
@@ -94,11 +96,13 @@ export default function EarningsScreen() {
         <View style={[s.divider, { backgroundColor: colors.border }]} />
 
         <View style={s.breakdown}>
-          {[
-            { label: "Gross", value: item.grossAmountCents, color: colors.success, icon: "trending-up" as const },
-            { label: "Deductions", value: item.deductionsCents, color: colors.destructive, icon: "trending-down" as const },
-            { label: "Incentives", value: item.incentivesCents, color: colors.warning, icon: "star" as const },
-          ].map(({ label, value, color, icon }) =>
+          {(
+            [
+              { label: "Gross", value: item.grossAmountCents, color: colors.success, icon: "trending-up" },
+              { label: "Deductions", value: item.deductionsCents, color: colors.destructive, icon: "trending-down" },
+              { label: "Incentives", value: item.incentivesCents, color: colors.warning, icon: "star" },
+            ] as { label: string; value: number; color: string; icon: React.ComponentProps<typeof Feather>["name"] }[]
+          ).map(({ label, value, color, icon }) =>
             value != null && value !== 0 ? (
               <View key={label} style={s.breakdownRow}>
                 <View style={s.breakdownLeft}>
@@ -143,14 +147,14 @@ export default function EarningsScreen() {
         <ActivityIndicator color={colors.primary} style={{ marginTop: 60 }} />
       ) : (
         <FlatList
-          data={earnings}
+          data={publishedEarnings}
           keyExtractor={(item) => item.id}
           renderItem={renderEarning}
           contentContainerStyle={[s.list, { paddingBottom: insets.bottom + 100 }]}
           refreshControl={<RefreshControl refreshing={false} onRefresh={refetch} tintColor={colors.primary} />}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={
-            earnings.length > 0 ? (
+            publishedEarnings.length > 0 ? (
               <View style={[s.summaryCard, { backgroundColor: colors.primary }]}>
                 <Text style={s.summaryLabel}>
                   {FILTERS.find((f) => f.key === filter)?.label} · Net
@@ -169,7 +173,7 @@ export default function EarningsScreen() {
                   <View style={s.summaryDivider} />
                   <View style={s.summaryItem}>
                     <Text style={s.summaryItemLabel}>Records</Text>
-                    <Text style={s.summaryItemValue}>{earnings.length}</Text>
+                    <Text style={s.summaryItemValue}>{publishedEarnings.length}</Text>
                   </View>
                 </View>
               </View>

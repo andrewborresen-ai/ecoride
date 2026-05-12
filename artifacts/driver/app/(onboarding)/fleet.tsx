@@ -8,12 +8,16 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useGetMyProfile, useUpdateMyProfile } from "@workspace/api-client-react";
+import { apiData } from "@/types/api";
+import type { DriverProfile } from "@/types/api";
 
 const STEPS = ["Personal", "Address", "Banking", "Fleet", "Documents", "Agreement"];
 
-const FLEET_OPTIONS = [
-  { value: "electric", label: "EcoRide Electric", description: "Zero-emission electric vehicles", icon: "zap" as const },
-  { value: "lpg", label: "Khula Rides LPG", description: "LPG-powered vehicles", icon: "droplet" as const },
+type FleetType = "electric" | "lpg";
+
+const FLEET_OPTIONS: { value: FleetType; label: string; description: string; icon: React.ComponentProps<typeof Feather>["name"] }[] = [
+  { value: "electric", label: "EcoRide Electric", description: "Zero-emission electric vehicles", icon: "zap" },
+  { value: "lpg", label: "Khula Rides LPG", description: "LPG-powered vehicles", icon: "droplet" },
 ];
 
 export default function FleetStep() {
@@ -22,9 +26,9 @@ export default function FleetStep() {
   const router = useRouter();
   const { data: profileRes } = useGetMyProfile();
   const { mutateAsync: updateProfile } = useUpdateMyProfile();
-  const profile = (profileRes as any)?.data;
+  const profile = apiData<DriverProfile>(profileRes);
 
-  const [fleetType, setFleetType] = useState<"electric" | "lpg">("electric");
+  const [fleetType, setFleetType] = useState<FleetType>("electric");
   const [boltDriverId, setBoltDriverId] = useState("");
   const [boltAccepted, setBoltAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -80,7 +84,7 @@ export default function FleetStep() {
           <Pressable
             key={opt.value}
             style={[s.fleetCard, { borderColor: fleetType === opt.value ? colors.primary : colors.border, backgroundColor: fleetType === opt.value ? colors.primary + "10" : colors.card }]}
-            onPress={() => { setFleetType(opt.value as any); Haptics.selectionAsync(); }}
+            onPress={() => { setFleetType(opt.value); Haptics.selectionAsync(); }}
           >
             <View style={[s.fleetIcon, { backgroundColor: fleetType === opt.value ? colors.primary : colors.muted }]}>
               <Feather name={opt.icon} size={22} color={fleetType === opt.value ? "#fff" : colors.mutedForeground} />

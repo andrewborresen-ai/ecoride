@@ -8,6 +8,8 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useGetMyProfile, useUpdateMyProfile } from "@workspace/api-client-react";
+import { apiData } from "@/types/api";
+import type { DriverProfile } from "@/types/api";
 
 const STEPS = ["Personal", "Address", "Banking", "Fleet", "Documents", "Agreement"];
 
@@ -17,7 +19,7 @@ export default function AddressStep() {
   const router = useRouter();
   const { data: profileRes } = useGetMyProfile();
   const { mutateAsync: updateProfile } = useUpdateMyProfile();
-  const profile = (profileRes as any)?.data;
+  const profile = apiData<DriverProfile>(profileRes);
 
   const [streetAddress, setStreetAddress] = useState("");
   const [suburb, setSuburb] = useState("");
@@ -72,13 +74,15 @@ export default function AddressStep() {
       </View>
 
       <ScrollView style={s.scroll} contentContainerStyle={[s.form, { paddingBottom: insets.bottom + 100 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        {[
-          { label: "Street Address *", value: streetAddress, onChange: setStreetAddress, placeholder: "123 Main Street" },
-          { label: "Suburb", value: suburb, onChange: setSuburb, placeholder: "Sandton" },
-          { label: "City *", value: city, onChange: setCity, placeholder: "Johannesburg" },
-          { label: "Province *", value: province, onChange: setProvince, placeholder: "Gauteng" },
-          { label: "Postal Code", value: postalCode, onChange: setPostalCode, placeholder: "2001", keyboard: "number-pad" as const },
-        ].map(({ label, value, onChange, placeholder, keyboard }) => (
+        {(
+          [
+            { label: "Street Address *", value: streetAddress, onChange: setStreetAddress, placeholder: "123 Main Street" },
+            { label: "Suburb", value: suburb, onChange: setSuburb, placeholder: "Sandton" },
+            { label: "City *", value: city, onChange: setCity, placeholder: "Johannesburg" },
+            { label: "Province *", value: province, onChange: setProvince, placeholder: "Gauteng" },
+            { label: "Postal Code", value: postalCode, onChange: setPostalCode, placeholder: "2001", keyboard: "number-pad" as const },
+          ] as { label: string; value: string; onChange: (v: string) => void; placeholder: string; keyboard?: "number-pad" }[]
+        ).map(({ label, value, onChange, placeholder, keyboard }) => (
           <View key={label} style={{ gap: 6, marginBottom: 16 }}>
             <Text style={{ fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground }}>{label}</Text>
             <TextInput

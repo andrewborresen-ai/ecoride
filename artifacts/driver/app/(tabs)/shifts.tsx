@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   View, Text, Pressable, StyleSheet, FlatList, ActivityIndicator,
-  Alert, RefreshControl, Platform,
+  Alert, RefreshControl, Platform, ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -21,6 +21,7 @@ import { apiData } from "@/types/api";
 import type { Shift, Allocation } from "@/types/api";
 
 type TabType = "available" | "requested" | "confirmed" | "past";
+type ShiftDateFilter = "thisWeek" | "nextWeek" | "all";
 
 const TABS: { key: TabType; label: string }[] = [
   { key: "available", label: "Open" },
@@ -28,6 +29,27 @@ const TABS: { key: TabType; label: string }[] = [
   { key: "confirmed", label: "Confirmed" },
   { key: "past", label: "Past" },
 ];
+
+const DATE_FILTERS: { key: ShiftDateFilter; label: string }[] = [
+  { key: "thisWeek", label: "This Week" },
+  { key: "nextWeek", label: "Next Week" },
+  { key: "all", label: "All" },
+];
+
+function getWeekBounds(offset: 0 | 1): { from: string; to: string } {
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - ((dayOfWeek + 6) % 7) + offset * 7);
+  monday.setHours(0, 0, 0, 0);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  return {
+    from: monday.toISOString(),
+    to: sunday.toISOString(),
+  };
+}
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString("en-ZA", { weekday: "short", month: "short", day: "numeric" });
@@ -42,13 +64,20 @@ export default function ShiftsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("available");
+  const [dateFilter, setDateFilter] = useState<ShiftDateFilter>("thisWeek");
 
   const isMyShiftsTab = activeTab !== "available";
 
-  const openShiftsQuery = useListOpenShifts(undefined, {
+  const openShiftParams = (() => {
+    if (dateFilter === "thisWeek") return getWeekBounds(0);
+    if (dateFilter === "nextWeek") return getWeekBounds(1);
+    return {};
+  })();
+
+  const openShiftsQuery = useListOpenShifts(openShiftParams, {
     query: {
       enabled: activeTab === "available",
-      queryKey: getListOpenShiftsQueryKey(),
+      queryKey: getListOpenShiftsQueryKey(openShiftParams),
     },
   });
   const myAllocationsQuery = useGetMyAllocations(undefined, {
@@ -247,8 +276,48 @@ export default function ShiftsScreen() {
       <View style={[s.screenHeader, { paddingTop: topPad }]}>
         <Text style={[s.screenTitle, { color: colors.foreground }]}>Shifts</Text>
         <View style={s.tabsRow}>
-          <ScrollableTabs tabs={TABS} active={activeTab} onSelect={(t) => { setActiveTab(t); Haptics.selectionAsync(); }} colors={colors} />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingRight: 4 }}>
+            {TABS.map((tab) => {
+              const isActive = tab.key === activeTab;
+              return (
+                <Pressable
+                  key={tab.key}
+                  style={[s.tabChip, { backgroundColor: isActive ? colors.primary : colors.muted }]}
+                  onPress={() => { setActiveTab(tab.key); Haptics.selectionAsync(); }}
+                >
+                  <Text style={[s.tabChipText, { color: isActive ? "#fff" : colors.mutedForeground }]}>
+                    {tab.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
         </View>
+
+        {activeTab === "available" && (
+          <View style={s.dateFilterRow}>
+            {DATE_FILTERS.map((f) => {
+              const isActive = f.key === dateFilter;
+              return (
+                <Pressable
+                  key={f.key}
+                  style={[
+                    s.dateFilterChip,
+                    {
+                      backgroundColor: isActive ? colors.primary + "15" : "transparent",
+                      borderColor: isActive ? colors.primary : colors.border,
+                    },
+                  ]}
+                  onPress={() => { setDateFilter(f.key); Haptics.selectionAsync(); }}
+                >
+                  <Text style={[s.dateFilterText, { color: isActive ? colors.primary : colors.mutedForeground }]}>
+                    {f.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
       </View>
 
       {isLoading ? (
@@ -278,51 +347,17 @@ export default function ShiftsScreen() {
   );
 }
 
-function ScrollableTabs({
-  tabs, active, onSelect, colors,
-}: {
-  tabs: { key: TabType; label: string }[];
-  active: TabType;
-  onSelect: (t: TabType) => void;
-  colors: ReturnType<typeof import("@/hooks/useColors").useColors>;
-}) {
-  return (
-    <View style={{ flexDirection: "row", gap: 6 }}>
-      {tabs.map((tab) => {
-        const isActive = tab.key === active;
-        return (
-          <Pressable
-            key={tab.key}
-            style={[
-              {
-                paddingHorizontal: 14,
-                paddingVertical: 7,
-                borderRadius: 20,
-                backgroundColor: isActive ? colors.primary : colors.muted,
-              },
-            ]}
-            onPress={() => onSelect(tab.key)}
-          >
-            <Text style={{
-              fontSize: 13,
-              fontFamily: "Inter_600SemiBold",
-              color: isActive ? "#fff" : colors.mutedForeground,
-            }}>
-              {tab.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
 const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useColors>) =>
   StyleSheet.create({
     root: { flex: 1 },
     screenHeader: { paddingHorizontal: 20, paddingBottom: 10 },
     screenTitle: { fontSize: 28, fontFamily: "Inter_700Bold", marginBottom: 12 },
-    tabsRow: {},
+    tabsRow: { marginBottom: 10 },
+    dateFilterRow: { flexDirection: "row", gap: 8, marginTop: 4 },
+    dateFilterChip: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 16, borderWidth: 1 },
+    dateFilterText: { fontSize: 12, fontFamily: "Inter_600SemiBold" },
+    tabChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20 },
+    tabChipText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
     list: { paddingHorizontal: 20, paddingTop: 10 },
     card: { borderRadius: 16, borderWidth: 1, padding: 16, marginBottom: 10, gap: 10 },
     cardHeader: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },

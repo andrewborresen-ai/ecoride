@@ -8,6 +8,8 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useGetMyProfile, useUpdateMyProfile } from "@workspace/api-client-react";
+import { apiData } from "@/types/api";
+import type { DriverProfile } from "@/types/api";
 
 const STEPS = ["Personal", "Address", "Banking", "Fleet", "Documents", "Agreement"];
 const ACCOUNT_TYPES = ["Cheque", "Savings", "Transmission"];
@@ -18,7 +20,7 @@ export default function BankingStep() {
   const router = useRouter();
   const { data: profileRes } = useGetMyProfile();
   const { mutateAsync: updateProfile } = useUpdateMyProfile();
-  const profile = (profileRes as any)?.data;
+  const profile = apiData<DriverProfile>(profileRes);
 
   const [bankName, setBankName] = useState("");
   const [accountNumber, setAccountNumber] = useState("");

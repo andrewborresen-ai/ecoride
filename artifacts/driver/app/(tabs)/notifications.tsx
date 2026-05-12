@@ -7,8 +7,12 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useGetMyNotifications, useMarkNotificationRead } from "@workspace/api-client-react";
+import { apiData } from "@/types/api";
+import type { Notification } from "@/types/api";
 
-const NOTIF_ICONS: Record<string, { icon: any; color: string }> = {
+type FeatherIconName = React.ComponentProps<typeof Feather>["name"];
+
+const NOTIF_ICONS: Record<string, { icon: FeatherIconName; color: string }> = {
   approval: { icon: "check-circle", color: "#16A34A" },
   rejection: { icon: "x-circle", color: "#EF4444" },
   shift: { icon: "calendar", color: "#3B82F6" },
@@ -34,8 +38,8 @@ export default function NotificationsScreen() {
   const { data: notifsRes, isLoading, refetch } = useGetMyNotifications();
   const { mutateAsync: markRead } = useMarkNotificationRead();
 
-  const notifications: any[] = (notifsRes as any)?.data ?? [];
-  const unreadCount = notifications.filter((n: any) => n.status === "unread").length;
+  const notifications: Notification[] = apiData<Notification[]>(notifsRes) ?? [];
+  const unreadCount = notifications.filter((n) => n.status === "unread").length;
 
   const handleMarkRead = async (id: string, status: string) => {
     if (status === "read") return;
@@ -49,10 +53,10 @@ export default function NotificationsScreen() {
   const s = makeStyles(colors);
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 0);
 
-  const renderNotification = ({ item }: { item: any }) => {
+  const renderNotification = ({ item }: { item: Notification }) => {
     const isUnread = item.status === "unread";
     const notifType = item.type ?? "general";
-    const iconConf = NOTIF_ICONS[notifType] ?? NOTIF_ICONS.general;
+    const iconConf = NOTIF_ICONS[notifType] ?? NOTIF_ICONS.general!;
 
     return (
       <Pressable

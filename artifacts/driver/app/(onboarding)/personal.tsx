@@ -16,8 +16,29 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useGetMyProfile, useUpdateMyProfile } from "@workspace/api-client-react";
+import { apiData } from "@/types/api";
+import type { DriverProfile } from "@/types/api";
 
 const STEPS = ["Personal", "Address", "Banking", "Fleet", "Documents", "Agreement"];
+
+type Colors = ReturnType<typeof import("@/hooks/useColors").useColors>;
+
+function Field({
+  label,
+  children,
+  colors,
+}: {
+  label: string;
+  children: React.ReactNode;
+  colors: Colors;
+}) {
+  return (
+    <View style={{ gap: 6, marginBottom: 16 }}>
+      <Text style={{ fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground }}>{label}</Text>
+      {children}
+    </View>
+  );
+}
 
 export default function PersonalStep() {
   const colors = useColors();
@@ -25,7 +46,7 @@ export default function PersonalStep() {
   const router = useRouter();
   const { data: profileRes } = useGetMyProfile();
   const { mutateAsync: updateProfile } = useUpdateMyProfile();
-  const profile = (profileRes as any)?.data;
+  const profile = apiData<DriverProfile>(profileRes);
 
   const [firstName, setFirstName] = useState(profile?.firstName ?? "");
   const [lastName, setLastName] = useState(profile?.lastName ?? "");
@@ -158,15 +179,6 @@ export default function PersonalStep() {
           )}
         </Pressable>
       </View>
-    </View>
-  );
-}
-
-function Field({ label, children, colors }: any) {
-  return (
-    <View style={{ gap: 6, marginBottom: 16 }}>
-      <Text style={{ fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground }}>{label}</Text>
-      {children}
     </View>
   );
 }
