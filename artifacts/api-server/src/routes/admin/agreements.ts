@@ -14,6 +14,7 @@ const CreateAgreementBody = z.object({
   version: z.string().min(1, "version is required"),
   content: z.string().min(1, "content is required"),
   fleetType: z.enum(["electric", "lpg"]).optional(),
+  pdfPath: z.string().optional(),
 });
 
 const PatchAgreementBody = z.object({
@@ -42,6 +43,7 @@ router.post("/v1/admin/agreements", requireAdmin, async (req: AuthenticatedReque
       title: d.title,
       version: d.version,
       content: d.content,
+      pdfPath: d.pdfPath ?? null,
       fleetType: d.fleetType ?? null,
       status: "draft",
       createdBy: req.userId!,
