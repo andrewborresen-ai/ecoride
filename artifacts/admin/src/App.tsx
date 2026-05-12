@@ -130,22 +130,40 @@ function ClerkTokenBridge() {
   return null;
 }
 
-function AuthCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+function EcoRideLogo() {
+  return (
+    <div className="flex flex-col items-center mb-8">
+      {/* Green rounded square with white lightning bolt — matches mobile logoMark exactly */}
+      <div
+        className="flex items-center justify-center mb-3"
+        style={{
+          width: 64, height: 64,
+          backgroundColor: "#3DB324",
+          borderRadius: 16,
+        }}
+      >
+        {/* White zap / lightning bolt SVG matching Feather "zap" size 28 */}
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+        </svg>
+      </div>
+      {/* ECORIDE — Inter 700, #3DB324, letterSpacing 4 */}
+      <p style={{ fontSize: 22, fontWeight: 700, color: "#3DB324", letterSpacing: 4, fontFamily: "Inter, sans-serif", lineHeight: 1 }}>
+        ECORIDE
+      </p>
+      {/* RIDE SMARTER — Inter 500, #6B7280, letterSpacing 3 */}
+      <p style={{ fontSize: 11, fontWeight: 500, color: "#6B7280", letterSpacing: 3, fontFamily: "Inter, sans-serif", marginTop: 3, lineHeight: 1 }}>
+        RIDE SMARTER
+      </p>
+    </div>
+  );
+}
+
+function AuthCard({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-8">
       <div className="w-[440px] max-w-full">
-        {/* Custom header that replaces Clerk's auto-generated title */}
-        <div className="flex flex-col items-center gap-2 mb-6">
-          <img
-            src={`${window.location.origin}${basePath}/icon.png`}
-            alt="EcoRide"
-            className="h-16 w-16 rounded-[18px] shadow-sm"
-          />
-          <div className="text-center mt-1">
-            <h1 className="text-xl font-bold text-[#1C2126]">{title}</h1>
-            {subtitle && <p className="text-sm text-[#6b7280] mt-0.5">{subtitle}</p>}
-          </div>
-        </div>
+        <EcoRideLogo />
         {children}
       </div>
     </div>
@@ -154,7 +172,7 @@ function AuthCard({ title, subtitle, children }: { title: string; subtitle?: str
 
 function SignInPage() {
   return (
-    <AuthCard title="Sign in to EcoRide" subtitle="Welcome back! Please sign in to continue">
+    <AuthCard>
       <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
     </AuthCard>
   );
@@ -162,7 +180,7 @@ function SignInPage() {
 
 function SignUpPage() {
   return (
-    <AuthCard title="Create your account" subtitle="Join the EcoRide fleet platform">
+    <AuthCard>
       <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
     </AuthCard>
   );
