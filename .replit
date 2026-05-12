@@ -42,3 +42,8 @@ externalPort = 4200
 [[ports]]
 localPort = 23744
 externalPort = 3000
+
+[userenv]
+
+[userenv.shared]
+EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_cnVsaW5nLWVhZ2xlLTE3LmNsZXJrLmFjY291bnRzLmRldiQ"

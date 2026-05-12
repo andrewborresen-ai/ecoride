@@ -11,6 +11,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -50,7 +51,21 @@ const tokenCache = {
   },
 };
 
-if (process.env.EXPO_PUBLIC_DOMAIN) {
+// Determine the API base URL:
+// 1. Explicit override via env var
+// 2. In Replit web (Expo served at xxx.expo.spock.replit.dev), derive API URL
+//    by removing the .expo. segment and appending :8080
+// 3. EXPO_PUBLIC_DOMAIN fallback for native builds
+if (process.env.EXPO_PUBLIC_API_URL) {
+  setBaseUrl(process.env.EXPO_PUBLIC_API_URL);
+} else if (Platform.OS === "web" && typeof window !== "undefined") {
+  const hostname = window.location.hostname;
+  if (hostname.includes(".expo.")) {
+    setBaseUrl(`https://${hostname.replace(".expo.", ".")}:8080`);
+  } else if (hostname !== "localhost") {
+    setBaseUrl(`https://${hostname}:8080`);
+  }
+} else if (process.env.EXPO_PUBLIC_DOMAIN) {
   setBaseUrl(`https://${process.env.EXPO_PUBLIC_DOMAIN}`);
 }
 

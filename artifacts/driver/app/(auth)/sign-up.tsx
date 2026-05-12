@@ -26,9 +26,11 @@ export default function SignUpScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleSignUp = async () => {
     if (!isLoaded || !email || !password) return;
+    setErrorMsg(null);
     try {
       setIsLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -37,12 +39,13 @@ export default function SignUpScreen() {
       setStep("verify");
     } catch (err: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      console.error("[SignUp] signUp.create failed:", err);
       const clerkErr = err as { errors?: { longMessage?: string; message?: string }[] };
       const msg =
         clerkErr?.errors?.[0]?.longMessage ??
         clerkErr?.errors?.[0]?.message ??
         "Registration failed. Please try again.";
-      Alert.alert("Registration Failed", msg);
+      setErrorMsg(msg);
     } finally {
       setIsLoading(false);
     }
@@ -50,6 +53,7 @@ export default function SignUpScreen() {
 
   const handleVerify = async () => {
     if (!isLoaded || !code) return;
+    setErrorMsg(null);
     try {
       setIsLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -62,24 +66,23 @@ export default function SignUpScreen() {
             await updateProfile({ data: { phone: phone.trim() } }).catch(() => {});
           }
         } catch (regErr: unknown) {
+          console.error("[SignUp] registerUser failed:", regErr);
           const e = regErr as { response?: { data?: { error?: string } }; message?: string };
           const regMsg = e?.response?.data?.error ?? e?.message ?? "Profile setup failed";
-          Alert.alert(
-            "Account Setup Issue",
-            `Your account was created but driver profile setup failed: ${regMsg}. Please contact support if this persists.`
-          );
+          setErrorMsg(`Account created but profile setup failed: ${regMsg}`);
         }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         router.replace("/");
       }
     } catch (err: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      console.error("[SignUp] verification failed:", err);
       const clerkErr = err as { errors?: { longMessage?: string; message?: string }[] };
       const msg =
         clerkErr?.errors?.[0]?.longMessage ??
         clerkErr?.errors?.[0]?.message ??
         "Verification failed. Check the code and try again.";
-      Alert.alert("Verification Failed", msg);
+      setErrorMsg(msg);
     } finally {
       setIsLoading(false);
     }
@@ -114,6 +117,11 @@ export default function SignUpScreen() {
             <Text style={[s.subtitle, { color: colors.mutedForeground }]}>
               Create your EcoRide driver account
             </Text>
+            {errorMsg ? (
+              <View style={[s.errorBox, { backgroundColor: "#fef2f2", borderColor: "#fca5a5" }]}>
+                <Text style={s.errorText}>{errorMsg}</Text>
+              </View>
+            ) : null}
             <View style={s.form}>
               <View style={s.fieldGroup}>
                 <Text style={[s.label, { color: colors.foreground }]}>Email Address</Text>
@@ -180,6 +188,11 @@ export default function SignUpScreen() {
             <Text style={[s.subtitle, { color: colors.mutedForeground }]}>
               We sent a 6-digit code to {email}
             </Text>
+            {errorMsg ? (
+              <View style={[s.errorBox, { backgroundColor: "#fef2f2", borderColor: "#fca5a5" }]}>
+                <Text style={s.errorText}>{errorMsg}</Text>
+              </View>
+            ) : null}
             <View style={s.form}>
               <View style={s.fieldGroup}>
                 <Text style={[s.label, { color: colors.foreground }]}>Verification Code</Text>
@@ -242,6 +255,8 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     passwordRow: { flexDirection: "row", alignItems: "center", height: 52, borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 16 },
     passwordInput: { flex: 1, fontSize: 15, fontFamily: "Inter_400Regular" },
     eyeBtn: { padding: 4 },
+    errorBox: { borderWidth: 1, borderRadius: 10, padding: 12, marginBottom: 4 },
+    errorText: { fontSize: 13, fontFamily: "Inter_400Regular", color: "#dc2626", lineHeight: 18 },
     btn: { height: 54, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: 8 },
     btnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold" },
     backBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8 },
