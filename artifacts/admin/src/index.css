@@ -231,6 +231,20 @@
   border-color: rgba(61, 179, 36, 0.4) !important;
 }
 
+/* Center-align all content inside the Clerk card */
+.cl-main,
+.cl-form,
+.cl-socialButtonsRoot,
+.cl-dividerRow,
+.cl-footerAction,
+.cl-alert {
+  text-align: center !important;
+}
+.cl-formFieldRow,
+.cl-formField {
+  text-align: left !important;
+}
+
 /* Form field label */
 .cl-formFieldLabel {
   font-size: 13px !important;
@@ -264,11 +278,16 @@
 
 /* Card: our outer div is the card — strip Clerk's own box entirely */
 .cl-card,
-.cl-cardBox {
+.cl-cardBox,
+.cl-main,
+.cl-form,
+.cl-rootBox {
   box-shadow: none !important;
   border: none !important;
   border-radius: 0 !important;
   background: transparent !important;
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 /* Logo: larger, matches mobile 48px icon */
