@@ -308,6 +308,11 @@
   color: #6b7280 !important;
 }
 
+/* Hide Clerk's "Development mode" badge (only shows with dev keys; gone in production) */
+.cl-developmentUsageBadge {
+  display: none !important;
+}
+
 /* Alert */
 .cl-alert {
   border-radius: 12px !important;

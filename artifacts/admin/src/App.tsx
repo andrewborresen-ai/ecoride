@@ -89,6 +89,7 @@ const clerkAppearance = {
     footerActionLink: "text-[#3DB324] font-semibold hover:text-[#329b1d]",
     footerActionText: "text-[#6b7280]",
     footerAction: "bg-[#F5F7F5] rounded-xl border border-[#E2E8DF]",
+    developmentUsageBadge: "!hidden",
     dividerText: "text-[#6b7280] text-sm",
     dividerLine: "bg-[#E2E8DF]",
     identityPreviewEditButton: "text-[#3DB324] font-semibold",
