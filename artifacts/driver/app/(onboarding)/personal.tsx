@@ -90,6 +90,9 @@ export default function PersonalStep() {
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
       <View style={[s.header, { paddingTop: topPad }]}>
+        <Pressable onPress={() => router.back()} style={s.backBtn}>
+          <Feather name="arrow-left" size={22} color={colors.foreground} />
+        </Pressable>
         <View style={s.progressRow}>
           {STEPS.map((step, i) => (
             <View key={step} style={[s.progressDot, { backgroundColor: i === 0 ? colors.primary : colors.border }]} />
@@ -162,7 +165,7 @@ export default function PersonalStep() {
         </Field>
       </ScrollView>
 
-      <View style={[s.footer, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={[s.footer, { paddingBottom: insets.bottom + (Platform.OS === "web" ? 24 : 16) }]}>
         <Pressable
           style={({ pressed }) => [s.nextBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 }]}
           onPress={handleNext}
@@ -187,6 +190,7 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
   StyleSheet.create({
     root: { flex: 1 },
     header: { paddingHorizontal: 24, paddingBottom: 20 },
+    backBtn: { marginBottom: 12, alignSelf: "flex-start" },
     progressRow: { flexDirection: "row", gap: 6, marginBottom: 12 },
     progressDot: { flex: 1, height: 4, borderRadius: 2 },
     stepLabel: { fontSize: 13, fontFamily: "Inter_400Regular", marginBottom: 4 },

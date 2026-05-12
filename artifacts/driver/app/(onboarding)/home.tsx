@@ -208,7 +208,7 @@ export default function OnboardingHome() {
         </ScrollView>
       )}
 
-      <View style={[s.footer, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={[s.footer, { paddingBottom: insets.bottom + (Platform.OS === "web" ? 24 : 16) }]}>
         <Pressable
           style={({ pressed }) => [
             s.submitBtn,

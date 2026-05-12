@@ -306,7 +306,7 @@ export default function AgreementStep() {
             </View>
           </ScrollView>
 
-          <View style={[s.footer, { paddingBottom: insets.bottom + 16 }]}>
+          <View style={[s.footer, { paddingBottom: insets.bottom + (Platform.OS === "web" ? 24 : 16) }]}>
             <Pressable
               style={({ pressed }) => [s.signBtn, { backgroundColor: canSign ? colors.primary : colors.muted, opacity: pressed ? 0.85 : 1 }]}
               onPress={handleSign}

@@ -238,7 +238,7 @@ export default function DocumentsStep() {
         })}
       </ScrollView>
 
-      <View style={[s.footer, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={[s.footer, { paddingBottom: insets.bottom + (Platform.OS === "web" ? 24 : 16) }]}>
         {!requiredUploaded && (
           <Text style={[s.hint, { color: colors.mutedForeground }]}>
             Upload all required documents to continue
