@@ -5,7 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser, useAuth } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useGetMe, getGetMeQueryKey, setAuthTokenGetter } from "@workspace/api-client-react";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
@@ -131,6 +131,37 @@ function ClerkTokenBridge() {
   return null;
 }
 
+function ClerkAdminSyncBridge({ onSynced }: { onSynced: () => void }) {
+  const { isSignedIn, user } = useUser();
+  const { getToken } = useAuth();
+  const syncedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isSignedIn || !user?.primaryEmailAddress?.emailAddress || syncedRef.current) return;
+    syncedRef.current = true;
+
+    (async () => {
+      try {
+        const token = await getToken();
+        // Use an absolute path so Vite's /api proxy always catches it, regardless of BASE_URL
+        const res = await fetch(`/api/v1/auth/admin-register`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ email: user.primaryEmailAddress!.emailAddress }),
+        });
+        if (res.ok) onSynced();
+      } catch {
+        // silently ignore — AdminGuard will show access denied
+      }
+    })();
+  }, [isSignedIn, user, getToken, onSynced]);
+
+  return null;
+}
+
 function EcoRideLogo() {
   return (
     <div className="flex flex-col items-center mb-8">
@@ -197,11 +228,13 @@ interface MeData {
   };
 }
 
-function AdminGuard({ children }: { children: React.ReactNode }) {
+function AdminGuard({ children, synced }: { children: React.ReactNode; synced: boolean }) {
   const { isLoaded, isSignedIn } = useUser();
-  const { data: me, isLoading } = useGetMe({ query: { enabled: !!isSignedIn, queryKey: getGetMeQueryKey() } });
+  const { data: me, isLoading, isError } = useGetMe({
+    query: { enabled: !!isSignedIn && synced, queryKey: getGetMeQueryKey() },
+  });
 
-  if (!isLoaded || isLoading) {
+  if (!isLoaded) {
     return <div className="flex min-h-[100dvh] items-center justify-center text-gray-500">Loading…</div>;
   }
 
@@ -209,11 +242,29 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
     return <Redirect to="/sign-in" />;
   }
 
+  if (!synced || isLoading) {
+    return <div className="flex min-h-[100dvh] items-center justify-center text-gray-500">Setting up your account…</div>;
+  }
+
+  if (isError) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-3 text-gray-500">
+        <p className="font-semibold text-[#1C2126]">Access denied</p>
+        <p className="text-sm">Your account doesn't have admin access to this panel.</p>
+      </div>
+    );
+  }
+
   const userData = me?.data as MeData | undefined;
   const role = userData?.user?.role;
 
   if (role !== "admin" && role !== "superadmin") {
-    return <Redirect to="/sign-in" />;
+    return (
+      <div className="flex min-h-[100dvh] flex-col items-center justify-center gap-3 text-gray-500">
+        <p className="font-semibold text-[#1C2126]">Access denied</p>
+        <p className="text-sm">Your account doesn't have admin access to this panel.</p>
+      </div>
+    );
   }
 
   return <>{children}</>;
@@ -223,9 +274,9 @@ function PageBoundary({ children }: { children: React.ReactNode }) {
   return <ErrorBoundary>{children}</ErrorBoundary>;
 }
 
-function ProtectedRoutes() {
+function ProtectedRoutes({ synced }: { synced: boolean }) {
   return (
-    <AdminGuard>
+    <AdminGuard synced={synced}>
       <Layout>
         <PageBoundary>
           <Switch>
@@ -263,6 +314,7 @@ function HomeRedirect() {
 
 function ClerkProviderWithRoutes() {
   const [, setLocation] = useLocation();
+  const [synced, setSynced] = useState(false);
 
   return (
     <ClerkProvider
@@ -277,11 +329,14 @@ function ClerkProviderWithRoutes() {
       <QueryClientProvider client={queryClient}>
         <ClerkQueryClientCacheInvalidator />
         <ClerkTokenBridge />
+        <ClerkAdminSyncBridge onSynced={() => setSynced(true)} />
         <Switch>
           <Route path="/" component={HomeRedirect} />
           <Route path="/sign-in/*?" component={SignInPage} />
           <Route path="/sign-up/*?" component={SignUpPage} />
-          <Route path="/*" component={ProtectedRoutes} />
+          <Route path="/*">
+            {() => <ProtectedRoutes synced={synced} />}
+          </Route>
         </Switch>
       </QueryClientProvider>
     </ClerkProvider>

@@ -71,4 +71,36 @@ router.post("/v1/auth/register", async (req, res): Promise<void> => {
   res.status(201).json(ok({ user, profile }));
 });
 
+router.post("/v1/auth/admin-register", async (req, res): Promise<void> => {
+  const auth = getAuth(req);
+  if (!auth?.userId) {
+    res.status(401).json({ success: false, error: "Unauthorized", data: null, meta: null });
+    return;
+  }
+
+  const parsed = RegisterBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ success: false, error: parsed.error.issues[0]?.message ?? "Invalid request", data: null, meta: null });
+    return;
+  }
+
+  const { email } = parsed.data;
+
+  const existing = await db.select().from(usersTable).where(eq(usersTable.clerkId, auth.userId));
+  if (existing.length > 0) {
+    const [user] = existing;
+    res.status(200).json(ok({ user, profile: null }));
+    return;
+  }
+
+  const userId = newId();
+  const [user] = await db
+    .insert(usersTable)
+    .values({ id: userId, clerkId: auth.userId, email, role: "admin", status: "active" })
+    .returning();
+
+  req.log.info({ userId }, "Admin registered");
+  res.status(201).json(ok({ user, profile: null }));
+});
+
 export default router;
