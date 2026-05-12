@@ -262,15 +262,13 @@
   font-size: 13px !important;
 }
 
-/* Card: tighten outer shadow, use EcoRide border */
-.cl-card {
+/* Card: our outer div is the card — strip Clerk's own box entirely */
+.cl-card,
+.cl-cardBox {
   box-shadow: none !important;
   border: none !important;
-}
-.cl-cardBox {
-  box-shadow: 0 4px 24px rgba(28, 33, 38, 0.10) !important;
-  border: 1px solid #E2E8DF !important;
-  border-radius: 20px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
 }
 
 /* Logo: larger, matches mobile 48px icon */
