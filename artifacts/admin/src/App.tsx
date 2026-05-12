@@ -42,7 +42,7 @@ const clerkAppearance = {
   options: {
     logoPlacement: "inside" as const,
     logoLinkUrl: basePath || "/",
-    logoImageUrl: `${window.location.origin}${basePath}/logo.svg`,
+    logoImageUrl: `${window.location.origin}${basePath}/icon.png`,
   },
   variables: {
     colorPrimary: "#3DB324",
@@ -130,19 +130,41 @@ function ClerkTokenBridge() {
   return null;
 }
 
+function AuthCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-8">
+      <div className="w-[440px] max-w-full">
+        {/* Custom header that replaces Clerk's auto-generated title */}
+        <div className="flex flex-col items-center gap-2 mb-6">
+          <img
+            src={`${window.location.origin}${basePath}/icon.png`}
+            alt="EcoRide"
+            className="h-16 w-16 rounded-[18px] shadow-sm"
+          />
+          <div className="text-center mt-1">
+            <h1 className="text-xl font-bold text-[#1C2126]">{title}</h1>
+            {subtitle && <p className="text-sm text-[#6b7280] mt-0.5">{subtitle}</p>}
+          </div>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function SignInPage() {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
+    <AuthCard title="Sign in to EcoRide" subtitle="Welcome back! Please sign in to continue">
       <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
-    </div>
+    </AuthCard>
   );
 }
 
 function SignUpPage() {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
+    <AuthCard title="Create your account" subtitle="Join the EcoRide fleet platform">
       <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
-    </div>
+    </AuthCard>
   );
 }
 

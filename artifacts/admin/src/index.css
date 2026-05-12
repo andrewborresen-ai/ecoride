@@ -150,6 +150,14 @@
 
 /* ─── Clerk sign-in/up form — match mobile app input & button style ─── */
 
+/* Hide Clerk's built-in logo + header — we render our own above the card */
+.cl-logoBox,
+.cl-logoImage,
+.cl-header {
+  display: none !important;
+}
+
+
 /* Inputs: 44px tall, 12px radius, 1.5px EcoRide border, white bg */
 .cl-formFieldInput {
   height: 44px !important;
