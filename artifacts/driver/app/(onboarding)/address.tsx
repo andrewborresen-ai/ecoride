@@ -41,8 +41,12 @@ export default function AddressStep() {
 
   const handleNext = async () => {
     setErrorMsg("");
-    if (!streetAddress || !city || !province) {
-      setErrorMsg("Please enter your street address, city and province.");
+    const missing: string[] = [];
+    if (!streetAddress) missing.push("street address");
+    if (!city) missing.push("city");
+    if (!province) missing.push("province");
+    if (missing.length > 0) {
+      setErrorMsg(`Please fill in: ${missing.join(", ")}.`);
       return;
     }
     try {
