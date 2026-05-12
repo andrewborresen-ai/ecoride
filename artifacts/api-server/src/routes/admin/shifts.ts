@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, shiftsTable, shiftAllocationsTable, driverProfilesTable, notificationsTable } from "@workspace/db";
+import { z } from "zod";
+import { db, shiftsTable, shiftAllocationsTable, notificationsTable } from "@workspace/db";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { requireAdmin } from "../../middlewares/auth";
 import type { AuthenticatedRequest } from "../../middlewares/auth";
@@ -7,6 +8,28 @@ import { ok } from "../../lib/response";
 import { newId } from "../../lib/ids";
 
 const router: IRouter = Router();
+
+const CreateShiftBody = z.object({
+  title: z.string().min(1, "title is required"),
+  description: z.string().optional(),
+  fleetType: z.enum(["electric", "lpg"]).optional(),
+  startTime: z.string().min(1, "startTime is required"),
+  endTime: z.string().min(1, "endTime is required"),
+  capacity: z.number().int().min(1).default(1),
+});
+
+const PatchShiftBody = z.object({
+  title: z.string().min(1).optional(),
+  description: z.string().optional(),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+  capacity: z.number().int().min(1).optional(),
+  status: z.enum(["open", "closed", "cancelled"]).optional(),
+}).strict();
+
+const DeclineAllocationBody = z.object({
+  reason: z.string().min(1, "reason is required"),
+});
 
 router.get("/v1/admin/shifts", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const conditions: ReturnType<typeof eq>[] = [];
@@ -17,26 +40,27 @@ router.get("/v1/admin/shifts", requireAdmin, async (req: AuthenticatedRequest, r
   const shifts = conditions.length > 0
     ? await db.select().from(shiftsTable).where(and(...conditions))
     : await db.select().from(shiftsTable);
-  res.json(ok(shifts));
+  res.json(ok(shifts, { total: shifts.length }));
 });
 
 router.post("/v1/admin/shifts", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { title, description, fleetType, startTime, endTime, capacity } = req.body;
-  if (!title || !startTime || !endTime) {
-    res.status(400).json({ success: false, error: "title, startTime, endTime required", data: null, meta: null });
+  const parsed = CreateShiftBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ success: false, error: parsed.error.issues[0]?.message ?? "Invalid request", data: null, meta: null });
     return;
   }
 
+  const d = parsed.data;
   const [shift] = await db
     .insert(shiftsTable)
     .values({
       id: newId(),
-      title,
-      description: description ?? null,
-      fleetType: fleetType ?? null,
-      startTime: new Date(startTime),
-      endTime: new Date(endTime),
-      capacity: capacity ?? 1,
+      title: d.title,
+      description: d.description ?? null,
+      fleetType: d.fleetType ?? null,
+      startTime: new Date(d.startTime),
+      endTime: new Date(d.endTime),
+      capacity: d.capacity,
       status: "open",
       createdBy: req.userId!,
     })
@@ -49,19 +73,26 @@ router.post("/v1/admin/shifts", requireAdmin, async (req: AuthenticatedRequest, 
 router.patch("/v1/admin/shifts/:shiftId", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.shiftId) ? req.params.shiftId[0] : req.params.shiftId;
 
+  const parsed = PatchShiftBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ success: false, error: parsed.error.issues[0]?.message ?? "Invalid request", data: null, meta: null });
+    return;
+  }
+
   const [existing] = await db.select().from(shiftsTable).where(eq(shiftsTable.id, raw));
   if (!existing) {
     res.status(404).json({ success: false, error: "Shift not found", data: null, meta: null });
     return;
   }
 
-  const allowed = ["title","description","startTime","endTime","capacity","status"];
+  const d = parsed.data;
   const updates: Record<string, unknown> = {};
-  for (const key of allowed) {
-    if (key in req.body) {
-      updates[key] = ["startTime","endTime"].includes(key) ? new Date(req.body[key]) : req.body[key];
-    }
-  }
+  if (d.title !== undefined) updates.title = d.title;
+  if (d.description !== undefined) updates.description = d.description;
+  if (d.startTime !== undefined) updates.startTime = new Date(d.startTime);
+  if (d.endTime !== undefined) updates.endTime = new Date(d.endTime);
+  if (d.capacity !== undefined) updates.capacity = d.capacity;
+  if (d.status !== undefined) updates.status = d.status;
 
   const [updated] = await db.update(shiftsTable).set(updates as never).where(eq(shiftsTable.id, raw)).returning();
   res.json(ok(updated));
@@ -70,76 +101,92 @@ router.patch("/v1/admin/shifts/:shiftId", requireAdmin, async (req: Authenticate
 router.get("/v1/admin/shifts/:shiftId/allocations", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.shiftId) ? req.params.shiftId[0] : req.params.shiftId;
   const allocations = await db.select().from(shiftAllocationsTable).where(eq(shiftAllocationsTable.shiftId, raw));
-  res.json(ok(allocations));
+  res.json(ok(allocations, { total: allocations.length }));
 });
 
-router.post("/v1/admin/shifts/:shiftId/allocations/:allocationId/confirm", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const shiftRaw = Array.isArray(req.params.shiftId) ? req.params.shiftId[0] : req.params.shiftId;
-  const allocRaw = Array.isArray(req.params.allocationId) ? req.params.allocationId[0] : req.params.allocationId;
+router.post(
+  "/v1/admin/shifts/:shiftId/allocations/:allocationId/confirm",
+  requireAdmin,
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const shiftRaw = Array.isArray(req.params.shiftId) ? req.params.shiftId[0] : req.params.shiftId;
+    const allocRaw = Array.isArray(req.params.allocationId) ? req.params.allocationId[0] : req.params.allocationId;
 
-  const [allocation] = await db
-    .select()
-    .from(shiftAllocationsTable)
-    .where(and(eq(shiftAllocationsTable.id, allocRaw), eq(shiftAllocationsTable.shiftId, shiftRaw)));
+    const [allocation] = await db
+      .select()
+      .from(shiftAllocationsTable)
+      .where(and(eq(shiftAllocationsTable.id, allocRaw), eq(shiftAllocationsTable.shiftId, shiftRaw)));
 
-  if (!allocation) {
-    res.status(404).json({ success: false, error: "Allocation not found", data: null, meta: null });
-    return;
+    if (!allocation) {
+      res.status(404).json({ success: false, error: "Allocation not found", data: null, meta: null });
+      return;
+    }
+
+    if (allocation.status !== "requested") {
+      res.status(400).json({ success: false, error: `Cannot confirm allocation with status: ${allocation.status}`, data: null, meta: null });
+      return;
+    }
+
+    const [updated] = await db
+      .update(shiftAllocationsTable)
+      .set({ status: "confirmed", confirmedAt: new Date(), confirmedBy: req.userId! })
+      .where(eq(shiftAllocationsTable.id, allocRaw))
+      .returning();
+
+    const [shiftRow] = await db.select().from(shiftsTable).where(eq(shiftsTable.id, shiftRaw));
+    if (shiftRow) {
+      await db
+        .update(shiftsTable)
+        .set({ confirmedCount: shiftRow.confirmedCount + 1 })
+        .where(eq(shiftsTable.id, shiftRaw));
+    }
+
+    await db.insert(notificationsTable).values({
+      id: newId(),
+      userId: allocation.userId,
+      title: "Shift Confirmed",
+      body: "Your shift request has been confirmed.",
+      type: "shift_confirmed",
+      status: "unread",
+      sentBy: req.userId!,
+    });
+
+    req.log.info({ allocationId: allocRaw }, "Shift allocation confirmed");
+    res.json(ok(updated));
   }
+);
 
-  const [updated] = await db
-    .update(shiftAllocationsTable)
-    .set({ status: "confirmed", confirmedAt: new Date(), confirmedBy: req.userId! })
-    .where(eq(shiftAllocationsTable.id, allocRaw))
-    .returning();
+router.post(
+  "/v1/admin/shifts/:shiftId/allocations/:allocationId/decline",
+  requireAdmin,
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const shiftRaw = Array.isArray(req.params.shiftId) ? req.params.shiftId[0] : req.params.shiftId;
+    const allocRaw = Array.isArray(req.params.allocationId) ? req.params.allocationId[0] : req.params.allocationId;
 
-  await db
-    .update(shiftsTable)
-    .set({ confirmedCount: (await db.select().from(shiftsTable).where(eq(shiftsTable.id, shiftRaw)))[0]!.confirmedCount + 1 })
-    .where(eq(shiftsTable.id, shiftRaw));
+    const parsed = DeclineAllocationBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ success: false, error: parsed.error.issues[0]?.message ?? "Invalid request", data: null, meta: null });
+      return;
+    }
 
-  await db.insert(notificationsTable).values({
-    id: newId(),
-    userId: allocation.userId,
-    title: "Shift Confirmed",
-    body: "Your shift request has been confirmed.",
-    type: "shift_confirmed",
-    status: "unread",
-    sentBy: req.userId!,
-  });
+    const [allocation] = await db
+      .select()
+      .from(shiftAllocationsTable)
+      .where(and(eq(shiftAllocationsTable.id, allocRaw), eq(shiftAllocationsTable.shiftId, shiftRaw)));
 
-  req.log.info({ allocationId: allocRaw }, "Shift allocation confirmed");
-  res.json(ok(updated));
-});
+    if (!allocation) {
+      res.status(404).json({ success: false, error: "Allocation not found", data: null, meta: null });
+      return;
+    }
 
-router.post("/v1/admin/shifts/:shiftId/allocations/:allocationId/decline", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const shiftRaw = Array.isArray(req.params.shiftId) ? req.params.shiftId[0] : req.params.shiftId;
-  const allocRaw = Array.isArray(req.params.allocationId) ? req.params.allocationId[0] : req.params.allocationId;
+    const [updated] = await db
+      .update(shiftAllocationsTable)
+      .set({ status: "declined", declinedAt: new Date(), declinedBy: req.userId!, declineReason: parsed.data.reason })
+      .where(eq(shiftAllocationsTable.id, allocRaw))
+      .returning();
 
-  const { reason } = req.body;
-  if (!reason) {
-    res.status(400).json({ success: false, error: "reason is required", data: null, meta: null });
-    return;
+    req.log.info({ allocationId: allocRaw }, "Shift allocation declined");
+    res.json(ok(updated));
   }
-
-  const [allocation] = await db
-    .select()
-    .from(shiftAllocationsTable)
-    .where(and(eq(shiftAllocationsTable.id, allocRaw), eq(shiftAllocationsTable.shiftId, shiftRaw)));
-
-  if (!allocation) {
-    res.status(404).json({ success: false, error: "Allocation not found", data: null, meta: null });
-    return;
-  }
-
-  const [updated] = await db
-    .update(shiftAllocationsTable)
-    .set({ status: "declined", declinedAt: new Date(), declinedBy: req.userId!, declineReason: reason })
-    .where(eq(shiftAllocationsTable.id, allocRaw))
-    .returning();
-
-  req.log.info({ allocationId: allocRaw }, "Shift allocation declined");
-  res.json(ok(updated));
-});
+);
 
 export default router;

@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { z } from "zod";
 import { db, agreementsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireAdmin } from "../../middlewares/auth";
@@ -8,21 +9,42 @@ import { newId } from "../../lib/ids";
 
 const router: IRouter = Router();
 
+const CreateAgreementBody = z.object({
+  title: z.string().min(1, "title is required"),
+  version: z.string().min(1, "version is required"),
+  content: z.string().min(1, "content is required"),
+  fleetType: z.enum(["electric", "lpg"]).optional(),
+});
+
+const PatchAgreementBody = z.object({
+  title: z.string().min(1).optional(),
+  content: z.string().min(1).optional(),
+}).strict();
+
 router.get("/v1/admin/agreements", requireAdmin, async (_req, res): Promise<void> => {
   const agreements = await db.select().from(agreementsTable);
-  res.json(ok(agreements));
+  res.json(ok(agreements, { total: agreements.length }));
 });
 
 router.post("/v1/admin/agreements", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { title, version, content, fleetType } = req.body;
-  if (!title || !version || !content) {
-    res.status(400).json({ success: false, error: "title, version, content required", data: null, meta: null });
+  const parsed = CreateAgreementBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ success: false, error: parsed.error.issues[0]?.message ?? "Invalid request", data: null, meta: null });
     return;
   }
 
+  const d = parsed.data;
   const [agreement] = await db
     .insert(agreementsTable)
-    .values({ id: newId(), title, version, content, fleetType: fleetType ?? null, status: "draft", createdBy: req.userId! })
+    .values({
+      id: newId(),
+      title: d.title,
+      version: d.version,
+      content: d.content,
+      fleetType: d.fleetType ?? null,
+      status: "draft",
+      createdBy: req.userId!,
+    })
     .returning();
 
   req.log.info({ agreementId: agreement.id }, "Agreement created");
@@ -32,16 +54,19 @@ router.post("/v1/admin/agreements", requireAdmin, async (req: AuthenticatedReque
 router.patch("/v1/admin/agreements/:agreementId", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.agreementId) ? req.params.agreementId[0] : req.params.agreementId;
 
+  const parsed = PatchAgreementBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ success: false, error: parsed.error.issues[0]?.message ?? "Invalid request", data: null, meta: null });
+    return;
+  }
+
   const [existing] = await db.select().from(agreementsTable).where(eq(agreementsTable.id, raw));
   if (!existing) {
     res.status(404).json({ success: false, error: "Agreement not found", data: null, meta: null });
     return;
   }
 
-  const updates: Record<string, unknown> = {};
-  if ("title" in req.body) updates.title = req.body.title;
-  if ("content" in req.body) updates.content = req.body.content;
-
+  const updates = Object.fromEntries(Object.entries(parsed.data).filter(([, v]) => v !== undefined));
   const [updated] = await db.update(agreementsTable).set(updates as never).where(eq(agreementsTable.id, raw)).returning();
   res.json(ok(updated));
 });
@@ -52,6 +77,11 @@ router.post("/v1/admin/agreements/:agreementId/activate", requireAdmin, async (r
   const [agreement] = await db.select().from(agreementsTable).where(eq(agreementsTable.id, raw));
   if (!agreement) {
     res.status(404).json({ success: false, error: "Agreement not found", data: null, meta: null });
+    return;
+  }
+
+  if (agreement.status !== "draft") {
+    res.status(400).json({ success: false, error: `Cannot activate agreement with status: ${agreement.status}`, data: null, meta: null });
     return;
   }
 

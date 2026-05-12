@@ -8,9 +8,16 @@
 import * as zod from "zod";
 
 /**
- * @summary Health check
+ * @summary Health check (legacy path)
  */
 export const HealthCheckResponse = zod.object({
+  status: zod.string(),
+});
+
+/**
+ * @summary Health check (versioned)
+ */
+export const HealthCheckV1Response = zod.object({
   status: zod.string(),
 });
 

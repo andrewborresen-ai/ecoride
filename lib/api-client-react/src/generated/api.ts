@@ -62,7 +62,7 @@ type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
 /**
- * @summary Health check
+ * @summary Health check (legacy path)
  */
 export const getHealthCheckUrl = () => {
   return `/api/healthz`;
@@ -113,7 +113,7 @@ export type HealthCheckQueryResult = NonNullable<
 export type HealthCheckQueryError = ErrorType<unknown>;
 
 /**
- * @summary Health check
+ * @summary Health check (legacy path)
  */
 
 export function useHealthCheck<
@@ -128,6 +128,81 @@ export function useHealthCheck<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getHealthCheckQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Health check (versioned)
+ */
+export const getHealthCheckV1Url = () => {
+  return `/api/v1/health`;
+};
+
+export const healthCheckV1 = async (
+  options?: RequestInit,
+): Promise<HealthStatus> => {
+  return customFetch<HealthStatus>(getHealthCheckV1Url(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getHealthCheckV1QueryKey = () => {
+  return [`/api/v1/health`] as const;
+};
+
+export const getHealthCheckV1QueryOptions = <
+  TData = Awaited<ReturnType<typeof healthCheckV1>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof healthCheckV1>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getHealthCheckV1QueryKey();
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof healthCheckV1>>> = ({
+    signal,
+  }) => healthCheckV1({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof healthCheckV1>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type HealthCheckV1QueryResult = NonNullable<
+  Awaited<ReturnType<typeof healthCheckV1>>
+>;
+export type HealthCheckV1QueryError = ErrorType<unknown>;
+
+/**
+ * @summary Health check (versioned)
+ */
+
+export function useHealthCheckV1<
+  TData = Awaited<ReturnType<typeof healthCheckV1>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof healthCheckV1>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getHealthCheckV1QueryOptions(options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

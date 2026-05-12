@@ -38,7 +38,20 @@ paths:
     get:
       operationId: healthCheck
       tags: [health]
-      summary: Health check
+      summary: Health check (legacy path)
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /v1/health:
+    get:
+      operationId: healthCheckV1
+      tags: [health]
+      summary: Health check (versioned)
       responses:
         "200":
           description: Healthy
