@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Send, Users, MessageSquare, AlertCircle, Search, Clock } from "lucide-react";
+import { Send, Users, MessageSquare, AlertCircle, Search, Clock, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { useAdminApi } from "@/lib/adminApi";
@@ -39,6 +39,8 @@ interface SentNotification {
   title: string;
   body: string;
   type: string;
+  status: string;
+  scheduledFor?: string | null;
   createdAt: string;
   sentBy?: string;
 }
@@ -168,7 +170,7 @@ export default function NotificationsPage() {
     }
   };
 
-  const doSend = async () => {
+  const doSend = async (overrideScheduledFor?: string) => {
     const targets = getTargetDrivers();
     if (targets.length === 0) {
       toast({ title: "No recipients selected", variant: "destructive" }); return;
@@ -182,7 +184,13 @@ export default function NotificationsPage() {
 
     for (const driver of targets) {
       const userId = driver.userId ?? driver.id;
-      const data: SendNotificationInput = { userId, title: form.title, body: form.body, type: form.type };
+      const data: SendNotificationInput & { scheduledFor?: string } = {
+        userId,
+        title: form.title,
+        body: form.body,
+        type: form.type,
+        ...(overrideScheduledFor ? { scheduledFor: overrideScheduledFor } : {}),
+      };
       await new Promise<void>((resolve) => {
         sendNotification.mutate({ data }, {
           onSuccess: () => { success++; resolve(); },
@@ -193,10 +201,17 @@ export default function NotificationsPage() {
 
     setSending(false);
     if (fail > 0) {
-      toast({ title: `Sent ${success}, failed ${fail}`, variant: "destructive" });
+      toast({ title: `Queued ${success}, failed ${fail}`, variant: "destructive" });
     } else {
-      toast({ title: `Notification sent to ${success} recipient${success !== 1 ? "s" : ""}` });
+      const isScheduled = overrideScheduledFor && new Date(overrideScheduledFor) > new Date();
+      toast({
+        title: isScheduled
+          ? `Scheduled for ${format(new Date(overrideScheduledFor!), "MMM d, HH:mm")}`
+          : `Sent to ${success} recipient${success !== 1 ? "s" : ""}`,
+        description: isScheduled ? `${success} notification${success !== 1 ? "s" : ""} queued on the server.` : undefined,
+      });
       setForm({ title: "", body: "", type: "system" });
+      setScheduledFor("");
     }
     await loadHistory();
   };
@@ -205,17 +220,7 @@ export default function NotificationsPage() {
     if (!form.title || !form.body) { toast({ title: "Title and body required", variant: "destructive" }); return; }
     const targets = getTargetDrivers();
     if (targets.length === 0) { toast({ title: "No recipients selected", variant: "destructive" }); return; }
-
-    if (scheduledFor) {
-      const sendAt = new Date(scheduledFor);
-      const delay = sendAt.getTime() - Date.now();
-      if (delay > 0) {
-        toast({ title: `Scheduled for ${format(sendAt, "MMM d, HH:mm")}`, description: "Will send while this page is open." });
-        setTimeout(() => { void doSend(); }, delay);
-        return;
-      }
-    }
-    await doSend();
+    await doSend(scheduledFor || undefined);
   };
 
   return (
@@ -295,7 +300,11 @@ export default function NotificationsPage() {
             <div className="space-y-1.5">
               <Label className="flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" /> Schedule Send (optional)</Label>
               <Input type="datetime-local" value={scheduledFor} onChange={(e) => setScheduledFor(e.target.value)} />
-              {scheduledFor && <p className="text-xs text-gray-400">Will send at {format(new Date(scheduledFor), "MMM d, HH:mm")} while this tab is open.</p>}
+              {scheduledFor && new Date(scheduledFor) > new Date() && (
+                <p className="text-xs text-[#3DB324] flex items-center gap-1">
+                  <Calendar className="h-3 w-3" /> Stored on the server and delivered at {format(new Date(scheduledFor), "MMM d, HH:mm")} — even if you close this tab.
+                </p>
+              )}
             </div>
           </div>
 
@@ -349,11 +358,18 @@ export default function NotificationsPage() {
                 {sentHistory.map((n) => (
                   <TableRow key={n.id}>
                     <TableCell className="text-sm tabular-nums text-gray-500">
-                      {format(new Date(n.createdAt), "MMM d HH:mm")}
+                      {n.scheduledFor && new Date(n.scheduledFor) > new Date()
+                        ? <span className="text-yellow-600 font-medium">{format(new Date(n.scheduledFor), "MMM d HH:mm")}</span>
+                        : format(new Date(n.createdAt), "MMM d HH:mm")}
                     </TableCell>
                     <TableCell className="font-medium max-w-[200px] truncate">{n.title}</TableCell>
                     <TableCell className="font-mono text-xs text-gray-500">{n.userId.slice(0, 12)}…</TableCell>
-                    <TableCell><Badge variant="outline" className="capitalize">{n.type}</Badge></TableCell>
+                    <TableCell className="flex items-center gap-1.5">
+                      <Badge variant="outline" className="capitalize">{n.type}</Badge>
+                      {n.status === "pending_delivery" && (
+                        <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300 text-xs">Scheduled</Badge>
+                      )}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

@@ -1,11 +1,12 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { db, notificationsTable, usersTable } from "@workspace/db";
-import { eq, isNotNull, desc } from "drizzle-orm";
+import { eq, isNotNull, desc, and, lte } from "drizzle-orm";
 import { requireAdmin } from "../../middlewares/auth";
 import type { AuthenticatedRequest } from "../../middlewares/auth";
 import { ok } from "../../lib/response";
 import { newId } from "../../lib/ids";
+import { logger } from "../../lib/logger";
 
 const router: IRouter = Router();
 
@@ -16,6 +17,7 @@ const SendNotificationBody = z.object({
   type: z.string().default("general"),
   referenceType: z.string().optional(),
   referenceId: z.string().optional(),
+  scheduledFor: z.string().optional(),
 });
 
 router.post("/v1/admin/notifications/send", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
@@ -33,6 +35,9 @@ router.post("/v1/admin/notifications/send", requireAdmin, async (req: Authentica
     return;
   }
 
+  const scheduledAt = d.scheduledFor ? new Date(d.scheduledFor) : null;
+  const isScheduled = scheduledAt && scheduledAt > new Date();
+
   const [notification] = await db
     .insert(notificationsTable)
     .values({
@@ -43,12 +48,13 @@ router.post("/v1/admin/notifications/send", requireAdmin, async (req: Authentica
       type: d.type,
       referenceType: d.referenceType ?? null,
       referenceId: d.referenceId ?? null,
-      status: "unread",
+      status: isScheduled ? "pending_delivery" : "unread",
+      scheduledFor: scheduledAt,
       sentBy: req.userId!,
     })
     .returning();
 
-  req.log.info({ notificationId: notification.id, userId: d.userId }, "Notification sent");
+  req.log.info({ notificationId: notification.id, userId: d.userId, scheduled: isScheduled }, "Notification queued");
   res.status(201).json(ok(notification));
 });
 
@@ -61,5 +67,38 @@ router.get("/v1/admin/notifications/sent", requireAdmin, async (_req: Authentica
     .limit(200);
   res.json(ok(sent, { total: sent.length }));
 });
+
+// Background scheduler: deliver pending_delivery notifications whose scheduledFor has passed
+async function deliverScheduledNotifications(): Promise<void> {
+  try {
+    const now = new Date();
+    const pending = await db
+      .select()
+      .from(notificationsTable)
+      .where(
+        and(
+          eq(notificationsTable.status, "pending_delivery"),
+          lte(notificationsTable.scheduledFor, now)
+        )
+      );
+
+    if (pending.length === 0) return;
+
+    for (const n of pending) {
+      await db
+        .update(notificationsTable)
+        .set({ status: "unread", scheduledFor: null })
+        .where(eq(notificationsTable.id, n.id));
+    }
+
+    logger.info({ delivered: pending.length }, "Scheduled notifications delivered");
+  } catch (err) {
+    logger.error({ err }, "Failed to deliver scheduled notifications");
+  }
+}
+
+// Run immediately on startup, then every 60 seconds
+void deliverScheduledNotifications();
+setInterval(() => { void deliverScheduledNotifications(); }, 60_000);
 
 export default router;

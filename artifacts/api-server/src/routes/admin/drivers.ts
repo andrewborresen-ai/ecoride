@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { db, driverProfilesTable, usersTable, driverDocumentsTable, notificationsTable } from "@workspace/db";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, or, ilike, sql } from "drizzle-orm";
 import { requireAdmin } from "../../middlewares/auth";
 import type { AuthenticatedRequest } from "../../middlewares/auth";
 import { ok } from "../../lib/response";
@@ -26,8 +26,23 @@ const VerifyDocumentBody = z.object({
 router.get("/v1/admin/drivers", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   let query = db.select().from(driverProfilesTable).$dynamic();
 
+  const conditions = [];
   if (req.query.status) {
-    query = query.where(eq(driverProfilesTable.status, req.query.status as string));
+    conditions.push(eq(driverProfilesTable.status, req.query.status as string));
+  }
+  if (req.query.search) {
+    const term = `%${(req.query.search as string).toLowerCase()}%`;
+    conditions.push(
+      or(
+        sql`lower(${driverProfilesTable.firstName}) like ${term}`,
+        sql`lower(${driverProfilesTable.lastName}) like ${term}`,
+        sql`lower(${driverProfilesTable.email}) like ${term}`,
+        sql`lower(${driverProfilesTable.phone}) like ${term}`,
+      )!
+    );
+  }
+  if (conditions.length > 0) {
+    query = query.where(conditions.length === 1 ? conditions[0] : and(...conditions));
   }
 
   const profiles = await query;

@@ -63,7 +63,10 @@ export default function DashboardPage() {
   const pendingCount = (pendingDriversRes?.data as ListData<DriverItem> | undefined)?.items.length ?? 0;
 
   const { data: approvedDriversRes } = useAdminListDrivers({ status: "approved", limit: 1 });
-  const approvedTotal = (approvedDriversRes?.data as { total?: number; items: DriverItem[] } | undefined)?.total ?? 0;
+  const approvedTotal = (approvedDriversRes?.data as { total?: number; items: DriverItem[] } | undefined)?.items.length ?? 0;
+
+  const { data: allDriversRes } = useAdminListDrivers({ limit: 1000 });
+  const totalDriversCount = (allDriversRes?.data as ListData<DriverItem> | undefined)?.items.length ?? (summary?.totalDrivers ?? 0);
 
   const { data: openShiftsRes, isLoading: loadingShifts } = useAdminListShifts({
     status: "open",
@@ -88,11 +91,22 @@ export default function DashboardPage() {
       </div>
 
       {/* Primary KPI Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         {loadingSummary ? (
           Array(4).fill(0).map((_, i) => <KPI_SKELETON key={i} />)
         ) : (
           <>
+            <Card className="border-l-4 border-l-gray-400">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-gray-500">Total Drivers</CardTitle>
+                <Users className="h-4 w-4 text-gray-400" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-[#1C2126]">{totalDriversCount}</div>
+                <p className="text-xs text-gray-400 mt-1">All registrations</p>
+              </CardContent>
+            </Card>
+
             <Card className="border-l-4 border-l-[#3DB324]">
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-gray-500">Approved Drivers</CardTitle>

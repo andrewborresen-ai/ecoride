@@ -13,6 +13,7 @@ export const notificationsTable = pgTable("notifications", {
   status: text("status").notNull().default("unread"),
   readAt: timestamp("read_at", { withTimezone: true }),
   sentBy: text("sent_by"),
+  scheduledFor: timestamp("scheduled_for", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

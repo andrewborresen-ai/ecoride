@@ -121,7 +121,7 @@ router.post(
       return;
     }
 
-    if (allocation.status !== "requested") {
+    if (allocation.status !== "requested" && allocation.status !== "waitlisted") {
       res.status(400).json({ success: false, error: `Cannot confirm allocation with status: ${allocation.status}`, data: null, meta: null });
       return;
     }
@@ -134,17 +134,21 @@ router.post(
 
     const [shiftRow] = await db.select().from(shiftsTable).where(eq(shiftsTable.id, shiftRaw));
     if (shiftRow) {
-      await db
-        .update(shiftsTable)
-        .set({ confirmedCount: shiftRow.confirmedCount + 1 })
-        .where(eq(shiftsTable.id, shiftRaw));
+      const newCount = shiftRow.confirmedCount + 1;
+      const shiftUpdates: Record<string, unknown> = { confirmedCount: newCount };
+      if (newCount >= shiftRow.capacity && shiftRow.status === "open") {
+        shiftUpdates.status = "full";
+      }
+      await db.update(shiftsTable).set(shiftUpdates as never).where(eq(shiftsTable.id, shiftRaw));
     }
 
     await db.insert(notificationsTable).values({
       id: newId(),
       userId: allocation.userId,
-      title: "Shift Confirmed",
-      body: "Your shift request has been confirmed.",
+      title: allocation.status === "waitlisted" ? "Promoted from Waitlist" : "Shift Confirmed",
+      body: allocation.status === "waitlisted"
+        ? "Great news — you have been promoted from the waitlist and your shift is now confirmed."
+        : "Your shift request has been confirmed.",
       type: "shift_confirmed",
       status: "unread",
       sentBy: req.userId!,

@@ -41,11 +41,12 @@ export default function DriversPage() {
   const [fleetType, setFleetType] = useState<string>("all");
   const [agreementFilter, setAgreementFilter] = useState<string>("all");
   const [telematicsFilter, setTelematicsFilter] = useState<string>("all");
+  const [docStatusFilter, setDocStatusFilter] = useState<string>("all");
 
   const { data, isLoading } = useAdminListDrivers({
     search: search || undefined,
     status: status !== "all" ? status : undefined,
-    limit: 200,
+    limit: 500,
   });
 
   const raw = (data?.data as DriversData | undefined)?.items ?? [];
@@ -53,7 +54,8 @@ export default function DriversPage() {
   const items = raw
     .filter((d) => fleetType === "all" || d.fleetType === fleetType)
     .filter((d) => agreementFilter === "all" || (agreementFilter === "signed" ? d.agreementSigned : !d.agreementSigned))
-    .filter((d) => telematicsFilter === "all" || d.telematicsSyncStatus === telematicsFilter);
+    .filter((d) => telematicsFilter === "all" || d.telematicsSyncStatus === telematicsFilter)
+    .filter((d) => docStatusFilter === "all" || d.documentsStatus === docStatusFilter);
 
   return (
     <div className="space-y-6">
@@ -116,6 +118,19 @@ export default function DriversPage() {
             <SelectItem value="pending">Pending</SelectItem>
             <SelectItem value="failed">Failed</SelectItem>
             <SelectItem value="not_started">Not Started</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={docStatusFilter} onValueChange={setDocStatusFilter}>
+          <SelectTrigger className="w-[185px]">
+            <SelectValue placeholder="Documents" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Documents: All</SelectItem>
+            <SelectItem value="complete">Complete</SelectItem>
+            <SelectItem value="incomplete">Incomplete</SelectItem>
+            <SelectItem value="pending_review">Pending Review</SelectItem>
+            <SelectItem value="verified">Verified</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
           </SelectContent>
         </Select>
       </div>
