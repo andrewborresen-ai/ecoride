@@ -48,40 +48,57 @@ const clerkAppearance = {
     colorPrimary: "#3DB324",
     colorForeground: "#1C2126",
     colorMutedForeground: "#6b7280",
-    colorDanger: "#dc2626",
+    colorDanger: "#EF4444",
     colorBackground: "#ffffff",
-    colorInput: "#f9fafb",
+    colorInput: "#ffffff",
     colorInputForeground: "#1C2126",
-    colorNeutral: "#e5e7eb",
-    fontFamily: "'Inter', sans-serif",
-    borderRadius: "0.5rem",
+    colorNeutral: "#E2E8DF",
+    fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+    fontWeightBold: "700",
+    fontWeightMedium: "600",
+    fontWeightNormal: "400",
+    borderRadius: "0.75rem",
+    spacingUnit: "1rem",
   },
   elements: {
     rootBox: "w-full flex justify-center",
-    cardBox: "bg-white rounded-2xl w-[440px] max-w-full overflow-hidden shadow-xl border border-gray-100",
-    card: "!shadow-none !border-0 !bg-transparent !rounded-none",
+    cardBox: "bg-white rounded-2xl w-[440px] max-w-full overflow-hidden shadow-xl border border-[#E2E8DF]",
+    card: "!shadow-none !border-0 !bg-transparent !rounded-none px-2",
     footer: "!shadow-none !border-0 !bg-transparent !rounded-none",
-    headerTitle: "text-[#1C2126] font-bold",
-    headerSubtitle: "text-gray-500",
-    socialButtonsBlockButtonText: "text-[#1C2126]",
-    formFieldLabel: "text-[#1C2126] font-medium",
-    footerActionLink: "text-[#3DB324]",
-    footerActionText: "text-gray-500",
-    dividerText: "text-gray-400",
-    identityPreviewEditButton: "text-[#3DB324]",
+    headerTitle: "text-[#1C2126] font-bold text-xl",
+    headerSubtitle: "text-[#6b7280] font-normal",
+    logoBox: "flex justify-center mb-1",
+    logoImage: "h-12 w-12",
+    formFieldLabel: "text-[#1C2126] font-semibold text-sm mb-1",
+    formFieldInput: [
+      "h-11 rounded-xl border-[1.5px] border-[#E2E8DF] bg-white text-[#1C2126]",
+      "text-sm font-medium px-4",
+      "focus:border-[#3DB324] focus:ring-2 focus:ring-[#3DB324]/20",
+      "placeholder:text-[#6b7280] placeholder:font-normal",
+    ].join(" "),
+    formButtonPrimary: [
+      "h-11 rounded-xl bg-[#3DB324] hover:bg-[#329b1d] text-white font-semibold text-sm",
+      "border-0 shadow-sm active:scale-[0.98] transition-all",
+    ].join(" "),
+    socialButtonsBlockButton: [
+      "h-11 rounded-xl border-[1.5px] border-[#E2E8DF] bg-white text-[#1C2126]",
+      "font-semibold text-sm hover:bg-[#F5F7F5] hover:border-[#3DB324]/40",
+      "shadow-none transition-all",
+    ].join(" "),
+    socialButtonsBlockButtonText: "text-[#1C2126] font-semibold",
+    footerActionLink: "text-[#3DB324] font-semibold hover:text-[#329b1d]",
+    footerActionText: "text-[#6b7280]",
+    footerAction: "bg-[#F5F7F5] rounded-xl border border-[#E2E8DF]",
+    dividerText: "text-[#6b7280] text-sm",
+    dividerLine: "bg-[#E2E8DF]",
+    identityPreviewEditButton: "text-[#3DB324] font-semibold",
     formFieldSuccessText: "text-[#3DB324]",
     alertText: "text-red-600",
-    logoBox: "flex justify-center",
-    logoImage: "h-10 w-auto",
-    socialButtonsBlockButton: "border border-gray-200 hover:border-gray-300",
-    formButtonPrimary: "bg-[#3DB324] hover:bg-[#329b1d]",
-    formFieldInput: "border-gray-200 bg-gray-50 text-[#1C2126]",
-    footerAction: "bg-gray-50",
-    dividerLine: "bg-gray-200",
-    alert: "border-red-100 bg-red-50",
-    otpCodeFieldInput: "border-gray-300",
-    formFieldRow: "",
-    main: "",
+    alert: "border-red-100 bg-red-50 rounded-xl",
+    otpCodeFieldInput: [
+      "h-12 w-12 rounded-xl border-[1.5px] border-[#E2E8DF] text-[#1C2126] font-bold text-lg",
+      "focus:border-[#3DB324]",
+    ].join(" "),
   },
 };
 
@@ -115,7 +132,7 @@ function ClerkTokenBridge() {
 
 function SignInPage() {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-gray-50 px-4">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
       <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
     </div>
   );
@@ -123,7 +140,7 @@ function SignInPage() {
 
 function SignUpPage() {
   return (
-    <div className="flex min-h-[100dvh] items-center justify-center bg-gray-50 px-4">
+    <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
       <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
     </div>
   );

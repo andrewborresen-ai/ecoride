@@ -145,6 +145,151 @@
     font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
   }
-  /* Inter weight anchors to match mobile app */
   h1, h2, h3, h4, h5, h6 { @apply font-semibold; }
+}
+
+/* ─── Clerk sign-in/up form — match mobile app input & button style ─── */
+
+/* Inputs: 44px tall, 12px radius, 1.5px EcoRide border, white bg */
+.cl-formFieldInput {
+  height: 44px !important;
+  border-radius: 12px !important;
+  border: 1.5px solid #E2E8DF !important;
+  background-color: #ffffff !important;
+  color: #1C2126 !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  padding: 0 16px !important;
+  box-shadow: none !important;
+  transition: border-color 0.15s, box-shadow 0.15s !important;
+}
+.cl-formFieldInput:focus {
+  border-color: #3DB324 !important;
+  box-shadow: 0 0 0 3px rgba(61, 179, 36, 0.15) !important;
+  outline: none !important;
+}
+.cl-formFieldInput::placeholder {
+  color: #6b7280 !important;
+  font-weight: 400 !important;
+}
+
+/* OTP inputs */
+.cl-otpCodeFieldInput {
+  height: 48px !important;
+  width: 48px !important;
+  border-radius: 12px !important;
+  border: 1.5px solid #E2E8DF !important;
+  font-size: 18px !important;
+  font-weight: 700 !important;
+}
+.cl-otpCodeFieldInput:focus {
+  border-color: #3DB324 !important;
+  box-shadow: 0 0 0 3px rgba(61, 179, 36, 0.15) !important;
+}
+
+/* Primary button: 44px, 12px radius, EcoRide green, semibold */
+.cl-formButtonPrimary {
+  height: 44px !important;
+  border-radius: 12px !important;
+  background-color: #3DB324 !important;
+  color: #ffffff !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  border: none !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12) !important;
+  transition: background-color 0.15s, transform 0.1s !important;
+}
+.cl-formButtonPrimary:hover {
+  background-color: #329b1d !important;
+}
+.cl-formButtonPrimary:active {
+  transform: scale(0.98) !important;
+}
+
+/* Social (Google) button: 44px, 12px radius, outline style */
+.cl-socialButtonsBlockButton {
+  height: 44px !important;
+  border-radius: 12px !important;
+  border: 1.5px solid #E2E8DF !important;
+  background-color: #ffffff !important;
+  color: #1C2126 !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  transition: background-color 0.15s, border-color 0.15s !important;
+}
+.cl-socialButtonsBlockButton:hover {
+  background-color: #F5F7F5 !important;
+  border-color: rgba(61, 179, 36, 0.4) !important;
+}
+
+/* Form field label */
+.cl-formFieldLabel {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #1C2126 !important;
+  margin-bottom: 4px !important;
+}
+
+/* Footer action area */
+.cl-footerAction {
+  background-color: #F5F7F5 !important;
+  border-radius: 12px !important;
+  border: 1px solid #E2E8DF !important;
+}
+.cl-footerActionLink {
+  color: #3DB324 !important;
+  font-weight: 600 !important;
+}
+.cl-footerActionText {
+  color: #6b7280 !important;
+}
+
+/* Divider */
+.cl-dividerLine {
+  background-color: #E2E8DF !important;
+}
+.cl-dividerText {
+  color: #6b7280 !important;
+  font-size: 13px !important;
+}
+
+/* Card: tighten outer shadow, use EcoRide border */
+.cl-card {
+  box-shadow: none !important;
+  border: none !important;
+}
+.cl-cardBox {
+  box-shadow: 0 4px 24px rgba(28, 33, 38, 0.10) !important;
+  border: 1px solid #E2E8DF !important;
+  border-radius: 20px !important;
+}
+
+/* Logo: larger, matches mobile 48px icon */
+.cl-logoImage {
+  height: 48px !important;
+  width: 48px !important;
+}
+
+/* Header */
+.cl-headerTitle {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: #1C2126 !important;
+}
+.cl-headerSubtitle {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  color: #6b7280 !important;
+}
+
+/* Alert */
+.cl-alert {
+  border-radius: 12px !important;
+  border: 1px solid #fecaca !important;
+  background-color: #fef2f2 !important;
+}
+.cl-alertText {
+  color: #dc2626 !important;
+  font-size: 13px !important;
 }
