@@ -2,10 +2,11 @@ import { useState } from "react";
 import {
   useAdminListAgreements,
   useAdminCreateAgreement,
+  useAdminUpdateAgreement,
   useAdminActivateAgreement,
   getAdminListAgreementsQueryKey,
 } from "@workspace/api-client-react";
-import type { AgreementInput } from "@workspace/api-client-react";
+import type { AgreementInput, AgreementUpdate } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -16,9 +17,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { Plus, CheckCircle } from "lucide-react";
+import { Plus, CheckCircle, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { Label } from "@/components/ui/label";
 
 interface AgreementItem {
   id: string;
@@ -26,6 +28,7 @@ interface AgreementItem {
   version: string;
   fleetType?: string;
   isActive?: boolean;
+  content?: string;
   createdAt: string;
 }
 
@@ -33,15 +36,11 @@ interface AgreementsData {
   items: AgreementItem[];
 }
 
-const EMPTY_AGREEMENT: AgreementInput = {
-  title: "",
-  version: "",
-  content: "",
-  fleetType: "electric",
-};
+const EMPTY: AgreementInput = { title: "", version: "", content: "", fleetType: "electric" };
 
 export default function AgreementsPage() {
   const [createOpen, setCreateOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState<AgreementItem | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -49,23 +48,36 @@ export default function AgreementsPage() {
   const agreements = (agreementsRes?.data as AgreementsData | undefined)?.items ?? [];
 
   const createAgreement = useAdminCreateAgreement();
+  const updateAgreement = useAdminUpdateAgreement();
   const activateAgreement = useAdminActivateAgreement();
 
-  const [newAgreement, setNewAgreement] = useState<AgreementInput>(EMPTY_AGREEMENT);
+  const [newAgreement, setNewAgreement] = useState<AgreementInput>(EMPTY);
+  const [editForm, setEditForm] = useState<AgreementUpdate>({});
 
   const handleCreate = () => {
-    if (!newAgreement.title || !newAgreement.content) { toast({ title: "Fields required", variant: "destructive" }); return; }
-
+    if (!newAgreement.title || !newAgreement.content || !newAgreement.version) {
+      toast({ title: "All fields required", variant: "destructive" }); return;
+    }
     createAgreement.mutate({ data: newAgreement }, {
       onSuccess: () => {
         toast({ title: "Agreement created" });
         setCreateOpen(false);
-        setNewAgreement(EMPTY_AGREEMENT);
+        setNewAgreement(EMPTY);
         queryClient.invalidateQueries({ queryKey: getAdminListAgreementsQueryKey() });
       },
-      onError: (err) => {
-        toast({ title: "Error creating agreement", description: err.message, variant: "destructive" });
+      onError: (err) => toast({ title: "Error creating agreement", description: err.message, variant: "destructive" }),
+    });
+  };
+
+  const handleUpdate = () => {
+    if (!editTarget) return;
+    updateAgreement.mutate({ agreementId: editTarget.id, data: editForm }, {
+      onSuccess: () => {
+        toast({ title: "Agreement updated" });
+        setEditTarget(null);
+        queryClient.invalidateQueries({ queryKey: getAdminListAgreementsQueryKey() });
       },
+      onError: (err) => toast({ title: "Error updating agreement", description: err.message, variant: "destructive" }),
     });
   };
 
@@ -75,9 +87,7 @@ export default function AgreementsPage() {
         toast({ title: "Agreement activated" });
         queryClient.invalidateQueries({ queryKey: getAdminListAgreementsQueryKey() });
       },
-      onError: (err) => {
-        toast({ title: "Error activating agreement", description: err.message, variant: "destructive" });
-      },
+      onError: (err) => toast({ title: "Error activating agreement", description: err.message, variant: "destructive" }),
     });
   };
 
@@ -86,43 +96,32 @@ export default function AgreementsPage() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-[#1C2126] tracking-tight">Agreements</h1>
-          <p className="text-gray-500">Manage legal terms and versions.</p>
+          <p className="text-gray-500">Manage legal terms, versions, and activation.</p>
         </div>
 
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>
           <DialogTrigger asChild>
             <Button className="bg-[#3DB324] hover:bg-[#329b1d]">
-              <Plus className="mr-2 h-4 w-4" /> New Agreement
+              <Plus className="mr-2 h-4 w-4" /> New Version
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-3xl">
             <DialogHeader><DialogTitle>Create New Agreement Version</DialogTitle></DialogHeader>
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Title</label>
-                  <Input
-                    value={newAgreement.title}
-                    onChange={(e) => setNewAgreement({ ...newAgreement, title: e.target.value })}
-                    placeholder="e.g. Master Services Agreement"
-                  />
+              <div className="grid grid-cols-3 gap-4">
+                <div className="col-span-2 space-y-1.5">
+                  <Label>Title</Label>
+                  <Input value={newAgreement.title} onChange={(e) => setNewAgreement({ ...newAgreement, title: e.target.value })} placeholder="e.g. Master Services Agreement" />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Version</label>
-                  <Input
-                    value={newAgreement.version}
-                    onChange={(e) => setNewAgreement({ ...newAgreement, version: e.target.value })}
-                    placeholder="e.g. v2.1"
-                  />
+                <div className="space-y-1.5">
+                  <Label>Version</Label>
+                  <Input value={newAgreement.version} onChange={(e) => setNewAgreement({ ...newAgreement, version: e.target.value })} placeholder="e.g. v2.1" />
                 </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Fleet Type</label>
-                <Select
-                  value={newAgreement.fleetType ?? "electric"}
-                  onValueChange={(v) => setNewAgreement({ ...newAgreement, fleetType: v })}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+              <div className="space-y-1.5">
+                <Label>Fleet Type</Label>
+                <Select value={newAgreement.fleetType ?? "electric"} onValueChange={(v) => setNewAgreement({ ...newAgreement, fleetType: v })}>
+                  <SelectTrigger className="w-[220px]"><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="electric">Electric (EcoRide)</SelectItem>
                     <SelectItem value="lpg">LPG (Khula Rides)</SelectItem>
@@ -130,13 +129,9 @@ export default function AgreementsPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Content (Markdown / Plain Text)</label>
-                <Textarea
-                  className="h-64 font-mono text-sm"
-                  value={newAgreement.content}
-                  onChange={(e) => setNewAgreement({ ...newAgreement, content: e.target.value })}
-                />
+              <div className="space-y-1.5">
+                <Label>Content (Markdown / Plain Text)</Label>
+                <Textarea className="h-64 font-mono text-sm" value={newAgreement.content} onChange={(e) => setNewAgreement({ ...newAgreement, content: e.target.value })} placeholder="Paste the full agreement text here..." />
               </div>
             </div>
             <DialogFooter>
@@ -146,6 +141,28 @@ export default function AgreementsPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(o) => { if (!o) setEditTarget(null); }}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader><DialogTitle>Edit Agreement — {editTarget?.title}</DialogTitle></DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-1.5">
+              <Label>Title</Label>
+              <Input value={editForm.title ?? editTarget?.title ?? ""} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Content</Label>
+              <Textarea className="h-64 font-mono text-sm" value={editForm.content ?? editTarget?.content ?? ""} onChange={(e) => setEditForm({ ...editForm, content: e.target.value })} />
+            </div>
+            <p className="text-xs text-gray-400">Note: Version and fleet type cannot be changed after creation. Create a new version for those changes.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditTarget(null)}>Cancel</Button>
+            <Button onClick={handleUpdate} disabled={updateAgreement.isPending} className="bg-[#3DB324] hover:bg-[#329b1d]">Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardContent className="p-0">
@@ -164,12 +181,7 @@ export default function AgreementsPage() {
               {isLoading ? (
                 Array(3).fill(0).map((_, i) => (
                   <TableRow key={i}>
-                    <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
-                    <TableCell><Skeleton className="h-8 w-24 ml-auto" /></TableCell>
+                    {Array(6).fill(0).map((_, j) => <TableCell key={j}><Skeleton className="h-4 w-24" /></TableCell>)}
                   </TableRow>
                 ))
               ) : agreements.length === 0 ? (
@@ -180,18 +192,23 @@ export default function AgreementsPage() {
                 agreements.map((a) => (
                   <TableRow key={a.id}>
                     <TableCell className="font-medium">{a.title}</TableCell>
-                    <TableCell>{a.version}</TableCell>
-                    <TableCell className="capitalize">{a.fleetType ?? '—'}</TableCell>
+                    <TableCell><Badge variant="outline">{a.version}</Badge></TableCell>
+                    <TableCell className="capitalize">{a.fleetType ?? "—"}</TableCell>
                     <TableCell className="text-sm text-gray-500">{format(new Date(a.createdAt), "MMM d, yyyy")}</TableCell>
                     <TableCell>
-                      <Badge
-                        variant={a.isActive ? 'default' : 'secondary'}
-                        className={a.isActive ? 'bg-[#3DB324] hover:bg-[#3DB324]' : ''}
-                      >
-                        {a.isActive ? 'Active' : 'Inactive'}
+                      <Badge variant={a.isActive ? "default" : "secondary"} className={a.isActive ? "bg-[#3DB324] hover:bg-[#3DB324]" : ""}>
+                        {a.isActive ? "Active" : "Draft"}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right space-x-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => { setEditTarget(a); setEditForm({ title: a.title, content: a.content ?? "" }); }}
+                        data-testid={`btn-edit-agreement-${a.id}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                       {!a.isActive && (
                         <Button
                           variant="outline"

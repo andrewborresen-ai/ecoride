@@ -9,6 +9,7 @@ import { useEffect, useRef } from 'react';
 import { useGetMe, getGetMeQueryKey, setAuthTokenGetter } from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Layout } from "@/components/Layout";
 import DashboardPage from "@/pages/DashboardPage";
 import DriversPage from "@/pages/DriversPage";
@@ -175,24 +176,30 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function PageBoundary({ children }: { children: React.ReactNode }) {
+  return <ErrorBoundary>{children}</ErrorBoundary>;
+}
+
 function ProtectedRoutes() {
   return (
     <AdminGuard>
       <Layout>
-        <Switch>
-          <Route path="/dashboard" component={DashboardPage} />
-          <Route path="/drivers" component={DriversPage} />
-          <Route path="/drivers/:id" component={DriverDetailPage} />
-          <Route path="/vehicles" component={VehiclesPage} />
-          <Route path="/agreements" component={AgreementsPage} />
-          <Route path="/shifts" component={ShiftsPage} />
-          <Route path="/shifts/:id" component={ShiftDetailPage} />
-          <Route path="/fleet-access" component={FleetAccessPage} />
-          <Route path="/earnings" component={EarningsPage} />
-          <Route path="/notifications" component={NotificationsPage} />
-          <Route path="/settings" component={SettingsPage} />
-          <Route component={NotFound} />
-        </Switch>
+        <PageBoundary>
+          <Switch>
+            <Route path="/dashboard" component={DashboardPage} />
+            <Route path="/drivers" component={DriversPage} />
+            <Route path="/drivers/:id" component={DriverDetailPage} />
+            <Route path="/vehicles" component={VehiclesPage} />
+            <Route path="/agreements" component={AgreementsPage} />
+            <Route path="/shifts" component={ShiftsPage} />
+            <Route path="/shifts/:id" component={ShiftDetailPage} />
+            <Route path="/fleet-access" component={FleetAccessPage} />
+            <Route path="/earnings" component={EarningsPage} />
+            <Route path="/notifications" component={NotificationsPage} />
+            <Route path="/settings" component={SettingsPage} />
+            <Route component={NotFound} />
+          </Switch>
+        </PageBoundary>
       </Layout>
     </AdminGuard>
   );
