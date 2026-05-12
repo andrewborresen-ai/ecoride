@@ -3,20 +3,42 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: EcoRide Fleet Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: drivers
+    description: Driver self-service
+  - name: admin-drivers
+    description: Admin driver management
+  - name: agreements
+    description: Agreements
+  - name: shifts
+    description: Shifts
+  - name: vehicles
+    description: Vehicle management
+  - name: earnings
+    description: Earnings
+  - name: notifications
+    description: Notifications
+  - name: dashboard
+    description: Dashboard summaries
+  - name: webhooks
+    description: Webhooks
+  - name: storage
+    description: File storage
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,7 +46,1162 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /v1/auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+        "401":
+          description: Unauthorized
+
+  /v1/auth/register:
+    post:
+      operationId: registerUser
+      tags: [auth]
+      summary: Register user and create driver profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: User registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+        "400":
+          description: Bad request
+
+  # ── Driver profile ──────────────────────────────────────────────
+  /v1/drivers/me/profile:
+    get:
+      operationId: getMyProfile
+      tags: [drivers]
+      summary: Get my driver profile
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Driver profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+    patch:
+      operationId: updateMyProfile
+      tags: [drivers]
+      summary: Update my driver profile
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriverProfileUpdate"
+      responses:
+        "200":
+          description: Updated profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/drivers/me/documents:
+    get:
+      operationId: getMyDocuments
+      tags: [drivers]
+      summary: List my documents
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Documents list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+    post:
+      operationId: createMyDocument
+      tags: [drivers]
+      summary: Record a document after upload
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentInput"
+      responses:
+        "201":
+          description: Document recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/drivers/me/documents/{documentId}:
+    delete:
+      operationId: deleteMyDocument
+      tags: [drivers]
+      summary: Delete my document
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted
+
+  /v1/drivers/me/documents/upload-url:
+    post:
+      operationId: requestDocumentUploadUrl
+      tags: [drivers]
+      summary: Request presigned URL for document upload
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+
+  /v1/drivers/me/agreement-signature:
+    get:
+      operationId: getMyAgreementSignature
+      tags: [drivers]
+      summary: Get my agreement signature
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Agreement signature
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+    post:
+      operationId: signAgreement
+      tags: [drivers]
+      summary: Sign the active agreement
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgreementSignatureInput"
+      responses:
+        "201":
+          description: Signed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/drivers/me/submit-application:
+    post:
+      operationId: submitApplication
+      tags: [drivers]
+      summary: Submit onboarding application for review
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Application submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/drivers/me/allocations:
+    get:
+      operationId: getMyAllocations
+      tags: [drivers]
+      summary: List my shift allocations
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Allocations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/drivers/me/allocations/{allocationId}:
+    delete:
+      operationId: cancelMyAllocation
+      tags: [drivers]
+      summary: Cancel a shift request
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: allocationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/drivers/me/vehicle-assignment:
+    get:
+      operationId: getMyActiveVehicleAssignment
+      tags: [drivers]
+      summary: Get my current active vehicle assignment
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Active vehicle assignment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/drivers/me/vehicle-assignments/{assignmentId}/unlock:
+    post:
+      operationId: requestVehicleUnlock
+      tags: [drivers]
+      summary: Request vehicle unlock via telematics
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Unlock request result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/drivers/me/vehicle-assignments/{assignmentId}/access-status:
+    get:
+      operationId: getVehicleAccessStatus
+      tags: [drivers]
+      summary: Get vehicle access status for assignment
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: assignmentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Access status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/drivers/me/earnings:
+    get:
+      operationId: getMyEarnings
+      tags: [earnings]
+      summary: List my published earnings
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+        - name: to
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Earnings list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/drivers/me/earnings/{earningsId}:
+    get:
+      operationId: getMyEarningsById
+      tags: [earnings]
+      summary: Get earnings detail
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: earningsId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Earnings detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/drivers/me/notifications:
+    get:
+      operationId: getMyNotifications
+      tags: [notifications]
+      summary: List my notifications
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/drivers/me/notifications/{notificationId}/read:
+    patch:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark notification as read
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: notificationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Marked read
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/drivers/me/dashboard/summary:
+    get:
+      operationId: getDriverDashboardSummary
+      tags: [dashboard]
+      summary: Get driver dashboard summary
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  # ── Shifts (driver-facing) ────────────────────────────────────
+  /v1/shifts:
+    get:
+      operationId: listOpenShifts
+      tags: [shifts]
+      summary: List open shifts available to drivers
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+        - name: to
+          in: query
+          schema:
+            type: string
+        - name: fleetType
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shifts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/shifts/{shiftId}/request:
+    post:
+      operationId: requestShift
+      tags: [shifts]
+      summary: Request a shift allocation
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: shiftId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Shift requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  # ── Agreements (public read) ──────────────────────────────────
+  /v1/agreements/active:
+    get:
+      operationId: getActiveAgreement
+      tags: [agreements]
+      summary: Get the active agreement
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Active agreement
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  # ── Admin: drivers ────────────────────────────────────────────
+  /v1/admin/drivers:
+    get:
+      operationId: adminListDrivers
+      tags: [admin-drivers]
+      summary: List all drivers
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Drivers list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/admin/drivers/{driverId}:
+    get:
+      operationId: adminGetDriver
+      tags: [admin-drivers]
+      summary: Get a driver
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: driverId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Driver
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/admin/drivers/{driverId}/approve:
+    post:
+      operationId: adminApproveDriver
+      tags: [admin-drivers]
+      summary: Approve a driver
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: driverId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/admin/drivers/{driverId}/reject:
+    post:
+      operationId: adminRejectDriver
+      tags: [admin-drivers]
+      summary: Reject a driver application
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: driverId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectDriverInput"
+      responses:
+        "200":
+          description: Rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/admin/drivers/{driverId}/suspend:
+    post:
+      operationId: adminSuspendDriver
+      tags: [admin-drivers]
+      summary: Suspend a driver
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: driverId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SuspendDriverInput"
+      responses:
+        "200":
+          description: Suspended
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/admin/drivers/{driverId}/documents:
+    get:
+      operationId: adminGetDriverDocuments
+      tags: [admin-drivers]
+      summary: Get driver documents
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: driverId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Documents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/admin/drivers/{driverId}/documents/{documentId}/verify:
+    post:
+      operationId: adminVerifyDocument
+      tags: [admin-drivers]
+      summary: Verify or reject a driver document
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: driverId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: documentId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentVerifyInput"
+      responses:
+        "200":
+          description: Verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  # ── Admin: agreements ─────────────────────────────────────────
+  /v1/admin/agreements:
+    get:
+      operationId: adminListAgreements
+      tags: [agreements]
+      summary: List all agreements
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Agreements
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+    post:
+      operationId: adminCreateAgreement
+      tags: [agreements]
+      summary: Create a new agreement
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgreementInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/admin/agreements/{agreementId}:
+    patch:
+      operationId: adminUpdateAgreement
+      tags: [agreements]
+      summary: Update an agreement
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: agreementId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgreementUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/admin/agreements/{agreementId}/activate:
+    post:
+      operationId: adminActivateAgreement
+      tags: [agreements]
+      summary: Activate an agreement (deactivates current)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: agreementId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Activated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  # ── Admin: shifts ─────────────────────────────────────────────
+  /v1/admin/shifts:
+    get:
+      operationId: adminListShifts
+      tags: [shifts]
+      summary: List all shifts
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+        - name: to
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shifts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+    post:
+      operationId: adminCreateShift
+      tags: [shifts]
+      summary: Create a shift
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShiftInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/admin/shifts/{shiftId}:
+    patch:
+      operationId: adminUpdateShift
+      tags: [shifts]
+      summary: Update a shift
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: shiftId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShiftUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/admin/shifts/{shiftId}/allocations:
+    get:
+      operationId: adminGetShiftAllocations
+      tags: [shifts]
+      summary: Get allocations for a shift
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: shiftId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Allocations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/admin/shifts/{shiftId}/allocations/{allocationId}/confirm:
+    post:
+      operationId: adminConfirmAllocation
+      tags: [shifts]
+      summary: Confirm a shift allocation
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: shiftId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: allocationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/admin/shifts/{shiftId}/allocations/{allocationId}/decline:
+    post:
+      operationId: adminDeclineAllocation
+      tags: [shifts]
+      summary: Decline a shift allocation
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: shiftId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: allocationId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeclineAllocationInput"
+      responses:
+        "200":
+          description: Declined
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  # ── Admin: vehicles ───────────────────────────────────────────
+  /v1/admin/vehicles:
+    get:
+      operationId: adminListVehicles
+      tags: [vehicles]
+      summary: List all vehicles
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: fleetType
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Vehicles
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+    post:
+      operationId: adminCreateVehicle
+      tags: [vehicles]
+      summary: Register a vehicle
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/admin/vehicles/{vehicleId}:
+    patch:
+      operationId: adminUpdateVehicle
+      tags: [vehicles]
+      summary: Update a vehicle
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  # ── Admin: vehicle assignments ────────────────────────────────
+  /v1/admin/vehicle-assignments:
+    get:
+      operationId: adminListVehicleAssignments
+      tags: [vehicles]
+      summary: List vehicle assignments
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: shiftId
+          in: query
+          schema:
+            type: string
+        - name: driverProfileId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Assignments
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+    post:
+      operationId: adminCreateVehicleAssignment
+      tags: [vehicles]
+      summary: Assign a vehicle to a driver for a shift
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VehicleAssignmentInput"
+      responses:
+        "201":
+          description: Assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  # ── Admin: vehicle access events ──────────────────────────────
+  /v1/admin/vehicle-access-events:
+    get:
+      operationId: adminListVehicleAccessEvents
+      tags: [vehicles]
+      summary: List vehicle access events (audit log)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: vehicleId
+          in: query
+          schema:
+            type: string
+        - name: driverProfileId
+          in: query
+          schema:
+            type: string
+        - name: from
+          in: query
+          schema:
+            type: string
+        - name: to
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Access events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  # ── Admin: earnings ───────────────────────────────────────────
+  /v1/admin/earnings:
+    get:
+      operationId: adminListEarnings
+      tags: [earnings]
+      summary: List all earnings records
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: driverProfileId
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Earnings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+    post:
+      operationId: adminCreateEarnings
+      tags: [earnings]
+      summary: Create an earnings record
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EarningsInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/admin/earnings/{earningsId}:
+    patch:
+      operationId: adminUpdateEarnings
+      tags: [earnings]
+      summary: Update an earnings record
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: earningsId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EarningsUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  /v1/admin/earnings/{earningsId}/publish:
+    post:
+      operationId: adminPublishEarnings
+      tags: [earnings]
+      summary: Publish earnings to driver
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: earningsId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Published
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  # ── Admin: notifications ──────────────────────────────────────
+  /v1/admin/notifications/send:
+    post:
+      operationId: adminSendNotification
+      tags: [notifications]
+      summary: Send a notification to a driver
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendNotificationInput"
+      responses:
+        "201":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  # ── Admin: dashboard ──────────────────────────────────────────
+  /v1/admin/dashboard/summary:
+    get:
+      operationId: getAdminDashboardSummary
+      tags: [dashboard]
+      summary: Get admin dashboard KPI summary
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: KPI summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  # ── Webhooks ──────────────────────────────────────────────────
+  /v1/webhooks/telematics:
+    post:
+      operationId: telematicsWebhook
+      tags: [webhooks]
+      summary: Receive telematics callback
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TelematicsWebhookInput"
+      responses:
+        "200":
+          description: Acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiResponse"
+
+  # ── Storage ───────────────────────────────────────────────────
+  /storage/uploads/request-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [storage]
+      summary: Request a presigned upload URL
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Presigned URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+
 components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+
   schemas:
     HealthStatus:
       type: object
@@ -34,3 +1211,302 @@ components:
       required:
         - status
 
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          {}
+        error:
+          type: ["string", "null"]
+        meta:
+          {}
+      required:
+        - success
+
+    RegisterInput:
+      type: object
+      required: [clerkId, email, role]
+      properties:
+        clerkId:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+
+    DriverProfileUpdate:
+      type: object
+      properties:
+        firstName: { type: string }
+        lastName: { type: string }
+        dateOfBirth: { type: string }
+        idNumber: { type: string }
+        phone: { type: string }
+        streetAddress: { type: string }
+        suburb: { type: string }
+        city: { type: string }
+        province: { type: string }
+        postalCode: { type: string }
+        bankName: { type: string }
+        accountNumber: { type: string }
+        accountType: { type: string }
+        branchCode: { type: string }
+        boltDriverId: { type: string }
+        boltDeclarationAccepted: { type: string }
+        fleetType: { type: string }
+
+    DocumentInput:
+      type: object
+      required: [documentType, objectPath]
+      properties:
+        documentType:
+          type: string
+        objectPath:
+          type: string
+        fileName:
+          type: string
+        mimeType:
+          type: string
+        fileSizeBytes:
+          type: integer
+
+    DocumentVerifyInput:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+        reviewNotes:
+          type: string
+
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+        size:
+          type: integer
+        contentType:
+          type: string
+
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
+          type: string
+
+    AgreementSignatureInput:
+      type: object
+      required: [legalName]
+      properties:
+        legalName:
+          type: string
+        signatureObjectPath:
+          type: string
+
+    AgreementInput:
+      type: object
+      required: [title, version, content]
+      properties:
+        title:
+          type: string
+        version:
+          type: string
+        content:
+          type: string
+        fleetType:
+          type: string
+
+    AgreementUpdate:
+      type: object
+      properties:
+        title: { type: string }
+        content: { type: string }
+
+    RejectDriverInput:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+
+    SuspendDriverInput:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+
+    ShiftInput:
+      type: object
+      required: [title, startTime, endTime]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        fleetType:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        capacity:
+          type: integer
+
+    ShiftUpdate:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string }
+        startTime: { type: string }
+        endTime: { type: string }
+        capacity: { type: integer }
+        status: { type: string }
+
+    DeclineAllocationInput:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+
+    VehicleInput:
+      type: object
+      required: [registrationNumber]
+      properties:
+        registrationNumber:
+          type: string
+        make:
+          type: string
+        model:
+          type: string
+        year:
+          type: string
+        colour:
+          type: string
+        vin:
+          type: string
+        fleetType:
+          type: string
+        telematicsVehicleId:
+          type: string
+        telematicsEnabled:
+          type: string
+        notes:
+          type: string
+
+    VehicleUpdate:
+      type: object
+      properties:
+        registrationNumber: { type: string }
+        make: { type: string }
+        model: { type: string }
+        year: { type: string }
+        colour: { type: string }
+        vin: { type: string }
+        fleetType: { type: string }
+        telematicsVehicleId: { type: string }
+        telematicsEnabled: { type: string }
+        status: { type: string }
+        notes: { type: string }
+
+    VehicleAssignmentInput:
+      type: object
+      required: [vehicleId, driverProfileId, assignmentStart, assignmentEnd]
+      properties:
+        vehicleId:
+          type: string
+        driverProfileId:
+          type: string
+        shiftId:
+          type: string
+        shiftAllocationId:
+          type: string
+        assignmentStart:
+          type: string
+        assignmentEnd:
+          type: string
+
+    EarningsInput:
+      type: object
+      required: [driverProfileId, userId, periodStart, periodEnd]
+      properties:
+        driverProfileId:
+          type: string
+        userId:
+          type: string
+        shiftId:
+          type: string
+        shiftAllocationId:
+          type: string
+        periodStart:
+          type: string
+        periodEnd:
+          type: string
+        currencyCode:
+          type: string
+        grossAmountCents:
+          type: integer
+        deductionsCents:
+          type: integer
+        incentivesCents:
+          type: integer
+        penaltiesCents:
+          type: integer
+        netAmountCents:
+          type: integer
+        tripCount:
+          type: integer
+        notes:
+          type: string
+
+    EarningsUpdate:
+      type: object
+      properties:
+        grossAmountCents: { type: integer }
+        deductionsCents: { type: integer }
+        incentivesCents: { type: integer }
+        penaltiesCents: { type: integer }
+        netAmountCents: { type: integer }
+        tripCount: { type: integer }
+        notes: { type: string }
+
+    SendNotificationInput:
+      type: object
+      required: [userId, title, body]
+      properties:
+        userId:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        type:
+          type: string
+        referenceType:
+          type: string
+        referenceId:
+          type: string
+
+    TelematicsWebhookInput:
+      type: object
+      properties:
+        eventType:
+          type: string
+        vehicleAccessEventId:
+          type: string
+        telematicsRequestId:
+          type: string
+        result:
+          type: string
+        message:
+          type: string
+        timestamp:
+          type: string
