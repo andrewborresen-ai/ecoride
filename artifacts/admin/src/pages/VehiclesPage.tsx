@@ -1,7 +1,11 @@
 import { useState } from "react";
-import { useAdminListVehicles, useAdminCreateVehicle } from "@workspace/api-client-react";
+import {
+  useAdminListVehicles,
+  useAdminCreateVehicle,
+  getAdminListVehiclesQueryKey,
+} from "@workspace/api-client-react";
+import type { VehicleInput } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { getAdminListVehiclesQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -13,6 +17,27 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+interface VehicleItem {
+  id: string;
+  registrationNumber: string;
+  make?: string;
+  model?: string;
+  fleetType?: string;
+  status?: string;
+  telematicsEnabled?: boolean | string;
+}
+
+interface VehiclesData {
+  items: VehicleItem[];
+}
+
+const EMPTY_VEHICLE: VehicleInput = {
+  registrationNumber: "",
+  make: "",
+  model: "",
+  fleetType: "electric",
+};
+
 export default function VehiclesPage() {
   const [fleetType, setFleetType] = useState<string>("all");
   const [status, setStatus] = useState<string>("all");
@@ -22,29 +47,27 @@ export default function VehiclesPage() {
 
   const { data: vehiclesRes, isLoading } = useAdminListVehicles({
     fleetType: fleetType !== "all" ? fleetType : undefined,
-    status: status !== "all" ? status : undefined
+    status: status !== "all" ? status : undefined,
   });
-  
-  const vehicles = (vehiclesRes as any)?.data?.items || [];
+
+  const vehicles = (vehiclesRes?.data as VehiclesData | undefined)?.items ?? [];
 
   const createVehicle = useAdminCreateVehicle();
-  const [newVehicle, setNewVehicle] = useState({
-    registrationNumber: "", make: "", model: "", fleetType: "electric"
-  });
+  const [newVehicle, setNewVehicle] = useState<VehicleInput>(EMPTY_VEHICLE);
 
   const handleCreate = () => {
     if (!newVehicle.registrationNumber) { toast({ title: "Registration required", variant: "destructive" }); return; }
-    
-    createVehicle.mutate({ data: newVehicle as any }, {
+
+    createVehicle.mutate({ data: newVehicle }, {
       onSuccess: () => {
         toast({ title: "Vehicle created" });
         setCreateOpen(false);
-        setNewVehicle({ registrationNumber: "", make: "", model: "", fleetType: "electric" });
+        setNewVehicle(EMPTY_VEHICLE);
         queryClient.invalidateQueries({ queryKey: getAdminListVehiclesQueryKey({}) });
       },
-      onError: (err: any) => {
+      onError: (err) => {
         toast({ title: "Error creating vehicle", description: err.message, variant: "destructive" });
-      }
+      },
     });
   };
 
@@ -63,30 +86,30 @@ export default function VehiclesPage() {
             </Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Vehicle</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Add New Vehicle</DialogTitle></DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <label className="text-sm font-medium">Registration Number</label>
-                <Input value={newVehicle.registrationNumber} onChange={e => setNewVehicle({...newVehicle, registrationNumber: e.target.value})} data-testid="input-vehicle-reg" />
+                <Input
+                  value={newVehicle.registrationNumber}
+                  onChange={(e) => setNewVehicle({ ...newVehicle, registrationNumber: e.target.value })}
+                  data-testid="input-vehicle-reg"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Make</label>
-                  <Input value={newVehicle.make} onChange={e => setNewVehicle({...newVehicle, make: e.target.value})} />
+                  <Input value={newVehicle.make ?? ""} onChange={(e) => setNewVehicle({ ...newVehicle, make: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Model</label>
-                  <Input value={newVehicle.model} onChange={e => setNewVehicle({...newVehicle, model: e.target.value})} />
+                  <Input value={newVehicle.model ?? ""} onChange={(e) => setNewVehicle({ ...newVehicle, model: e.target.value })} />
                 </div>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Fleet Type</label>
-                <Select value={newVehicle.fleetType} onValueChange={v => setNewVehicle({...newVehicle, fleetType: v})}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                <Select value={newVehicle.fleetType ?? "electric"} onValueChange={(v) => setNewVehicle({ ...newVehicle, fleetType: v })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="electric">Electric (EcoRide)</SelectItem>
                     <SelectItem value="lpg">LPG (Khula Rides)</SelectItem>
@@ -132,7 +155,7 @@ export default function VehiclesPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Registration</TableHead>
-                <TableHead>Make/Model</TableHead>
+                <TableHead>Make / Model</TableHead>
                 <TableHead>Fleet Type</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Telematics</TableHead>
@@ -154,16 +177,19 @@ export default function VehiclesPage() {
                   <TableCell colSpan={5} className="text-center py-8 text-gray-500">No vehicles found.</TableCell>
                 </TableRow>
               ) : (
-                vehicles.map((v: any) => (
+                vehicles.map((v) => (
                   <TableRow key={v.id}>
                     <TableCell className="font-medium">{v.registrationNumber}</TableCell>
-                    <TableCell>{v.make} {v.model}</TableCell>
-                    <TableCell className="capitalize">{v.fleetType}</TableCell>
+                    <TableCell>{[v.make, v.model].filter(Boolean).join(' ') || '—'}</TableCell>
+                    <TableCell className="capitalize">{v.fleetType ?? '—'}</TableCell>
                     <TableCell>
-                      <Badge variant={v.status === 'active' ? 'default' : 'secondary'}>{v.status}</Badge>
+                      <Badge variant={v.status === 'active' ? 'default' : 'secondary'}>{v.status ?? '—'}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={v.telematicsEnabled ? 'outline' : 'secondary'} className={v.telematicsEnabled ? 'border-[#3DB324] text-[#3DB324]' : ''}>
+                      <Badge
+                        variant={v.telematicsEnabled ? 'outline' : 'secondary'}
+                        className={v.telematicsEnabled ? 'border-[#3DB324] text-[#3DB324]' : ''}
+                      >
                         {v.telematicsEnabled ? 'Enabled' : 'Disabled'}
                       </Badge>
                     </TableCell>

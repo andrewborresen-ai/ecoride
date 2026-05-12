@@ -2,11 +2,12 @@ import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wo
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser } from '@clerk/react';
+import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser, useAuth } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import { useEffect, useRef } from 'react';
-import { useGetMe, getGetMeQueryKey } from "@workspace/api-client-react";
+import { useGetMe, getGetMeQueryKey, setAuthTokenGetter } from "@workspace/api-client-react";
+import { Button } from "@/components/ui/button";
 
 import { Layout } from "@/components/Layout";
 import DashboardPage from "@/pages/DashboardPage";
@@ -19,6 +20,7 @@ import AgreementsPage from "@/pages/AgreementsPage";
 import FleetAccessPage from "@/pages/FleetAccessPage";
 import EarningsPage from "@/pages/EarningsPage";
 import NotificationsPage from "@/pages/NotificationsPage";
+import SettingsPage from "@/pages/SettingsPage";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -85,18 +87,29 @@ const clerkAppearance = {
 
 function ClerkQueryClientCacheInvalidator() {
   const { addListener } = useClerk();
-  const queryClient = useQueryClient();
+  const qc = useQueryClient();
   const prevUserIdRef = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     const unsubscribe = addListener(({ user }) => {
       const userId = user?.id ?? null;
       if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
-        queryClient.clear();
+        qc.clear();
       }
       prevUserIdRef.current = userId;
     });
     return unsubscribe;
-  }, [addListener, queryClient]);
+  }, [addListener, qc]);
+  return null;
+}
+
+function ClerkTokenBridge() {
+  const { getToken } = useAuth();
+  useEffect(() => {
+    setAuthTokenGetter(() => getToken());
+    return () => {
+      setAuthTokenGetter(null);
+    };
+  }, [getToken]);
   return null;
 }
 
@@ -116,25 +129,47 @@ function SignUpPage() {
   );
 }
 
+interface MeData {
+  user?: {
+    role?: string;
+    id?: string;
+  };
+}
+
 function AdminGuard({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn } = useUser();
+  const { signOut } = useClerk();
   const { data: me, isLoading } = useGetMe({ query: { enabled: !!isSignedIn, queryKey: getGetMeQueryKey() } });
 
   if (!isLoaded || isLoading) {
-    return <div className="flex min-h-[100dvh] items-center justify-center">Loading...</div>;
+    return <div className="flex min-h-[100dvh] items-center justify-center text-gray-500">Loading…</div>;
   }
 
   if (!isSignedIn) {
     return <Redirect to="/sign-in" />;
   }
 
-  // Assuming response structure: { success: true, data: { user: { role: 'admin' } } }
-  // We'll just allow it if we have me.data, since we only have admin access for now in this app
-  const role = (me?.data as any)?.user?.role;
+  const userData = me?.data as MeData | undefined;
+  const role = userData?.user?.role;
+
   if (role !== "admin" && role !== "superadmin") {
-    // If testing doesn't give us role strictly, we might need to bypass it for preview.
-    // For strict mode:
-    // return <div className="flex min-h-[100dvh] items-center justify-center text-red-500">Access denied — admin accounts only</div>;
+    return (
+      <div className="flex min-h-[100dvh] items-center justify-center bg-gray-50 px-4">
+        <div className="text-center space-y-4 max-w-sm">
+          <h1 className="text-2xl font-bold text-red-600">Access Denied</h1>
+          <p className="text-gray-600">
+            This portal is restricted to authorised EcoRide administrators only. Your account does not have the required role.
+          </p>
+          <Button
+            variant="outline"
+            onClick={() => signOut()}
+            data-testid="btn-access-denied-signout"
+          >
+            Sign Out
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;
@@ -155,6 +190,7 @@ function ProtectedRoutes() {
           <Route path="/fleet-access" component={FleetAccessPage} />
           <Route path="/earnings" component={EarningsPage} />
           <Route path="/notifications" component={NotificationsPage} />
+          <Route path="/settings" component={SettingsPage} />
           <Route component={NotFound} />
         </Switch>
       </Layout>
@@ -190,6 +226,7 @@ function ClerkProviderWithRoutes() {
     >
       <QueryClientProvider client={queryClient}>
         <ClerkQueryClientCacheInvalidator />
+        <ClerkTokenBridge />
         <Switch>
           <Route path="/" component={HomeRedirect} />
           <Route path="/sign-in/*?" component={SignInPage} />

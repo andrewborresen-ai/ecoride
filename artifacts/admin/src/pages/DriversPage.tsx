@@ -9,19 +9,33 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 
+interface DriverItem {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  fleetType?: string;
+  status: string;
+  telematicsSyncStatus?: string;
+  createdAt?: string;
+}
+
+interface DriversData {
+  items: DriverItem[];
+}
+
 export default function DriversPage() {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<string>("all");
   const [fleetType, setFleetType] = useState<string>("all");
 
-  const { data, isLoading } = useAdminListDrivers({ 
-    search: search || undefined, 
-    status: status !== "all" ? status : undefined 
+  const { data, isLoading } = useAdminListDrivers({
+    search: search || undefined,
+    status: status !== "all" ? status : undefined,
   });
-  
-  const items = (data as any)?.data?.items || [];
 
-  const filteredItems = items.filter((d: any) => fleetType === "all" || d.fleetType === fleetType);
+  const items = (data?.data as DriversData | undefined)?.items ?? [];
+  const filteredItems = fleetType === "all" ? items : items.filter((d) => d.fleetType === fleetType);
 
   return (
     <div className="space-y-6">
@@ -31,8 +45,8 @@ export default function DriversPage() {
       </div>
 
       <div className="flex flex-col sm:flex-row gap-4">
-        <Input 
-          placeholder="Search by name or phone..." 
+        <Input
+          placeholder="Search by name or phone..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm"
@@ -95,35 +109,38 @@ export default function DriversPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredItems.map((driver: any) => (
+                filteredItems.map((driver) => (
                   <TableRow key={driver.id} className="cursor-pointer hover:bg-gray-50" data-testid={`row-driver-${driver.id}`}>
                     <TableCell className="font-medium">
                       <Link href={`/drivers/${driver.id}`} className="text-[#3DB324] hover:underline">
                         {driver.firstName} {driver.lastName}
                       </Link>
                     </TableCell>
-                    <TableCell>{driver.phone || '-'}</TableCell>
-                    <TableCell className="capitalize">{driver.fleetType || '-'}</TableCell>
+                    <TableCell>{driver.phone ?? '—'}</TableCell>
+                    <TableCell className="capitalize">{driver.fleetType ?? '—'}</TableCell>
                     <TableCell>
                       <Badge variant={
-                        driver.status === 'approved' ? 'default' : 
-                        driver.status === 'rejected' || driver.status === 'suspended' ? 'destructive' : 
+                        driver.status === 'approved' ? 'default' :
+                        driver.status === 'rejected' || driver.status === 'suspended' ? 'destructive' :
                         'secondary'
                       }>
                         {driver.status}
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={
-                        driver.telematicsSyncStatus === 'synced' ? 'outline' : 
-                        driver.telematicsSyncStatus === 'failed' ? 'destructive' : 
-                        'secondary'
-                      } className={driver.telematicsSyncStatus === 'synced' ? 'border-[#3DB324] text-[#3DB324]' : ''}>
-                        {driver.telematicsSyncStatus || 'pending'}
+                      <Badge
+                        variant={
+                          driver.telematicsSyncStatus === 'synced' ? 'outline' :
+                          driver.telematicsSyncStatus === 'failed' ? 'destructive' :
+                          'secondary'
+                        }
+                        className={driver.telematicsSyncStatus === 'synced' ? 'border-[#3DB324] text-[#3DB324]' : ''}
+                      >
+                        {driver.telematicsSyncStatus ?? 'pending'}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-gray-500">
-                      {driver.createdAt ? format(new Date(driver.createdAt), "MMM d, yyyy") : '-'}
+                      {driver.createdAt ? format(new Date(driver.createdAt), "MMM d, yyyy") : '—'}
                     </TableCell>
                   </TableRow>
                 ))

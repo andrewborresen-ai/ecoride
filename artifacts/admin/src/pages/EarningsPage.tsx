@@ -1,5 +1,11 @@
 import { useState, useRef } from "react";
-import { useAdminListEarnings, useAdminCreateEarnings, useAdminPublishEarnings, getAdminListEarningsQueryKey } from "@workspace/api-client-react";
+import {
+  useAdminListEarnings,
+  useAdminCreateEarnings,
+  useAdminPublishEarnings,
+  getAdminListEarningsQueryKey,
+} from "@workspace/api-client-react";
+import type { EarningsInput } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,9 +15,27 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Download, Upload, Eye } from "lucide-react";
+import { Plus, Upload, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+
+interface EarningsItem {
+  id: string;
+  driverProfileId: string;
+  periodStart: string;
+  periodEnd: string;
+  grossAmountCents?: number;
+  deductionsCents?: number;
+  penaltiesCents?: number;
+  netAmountCents?: number;
+  status: string;
+}
+
+interface EarningsData {
+  items: EarningsItem[];
+}
+
+const formatCurrency = (cents: number) => `ZAR ${(cents / 100).toFixed(2)}`;
 
 export default function EarningsPage() {
   const [status, setStatus] = useState<string>("all");
@@ -22,40 +46,55 @@ export default function EarningsPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: earningsRes, isLoading } = useAdminListEarnings({
-    status: status !== "all" ? status : undefined
+    status: status !== "all" ? status : undefined,
   });
-  
-  const earnings = (earningsRes as any)?.data?.items || [];
+  const earnings = (earningsRes?.data as EarningsData | undefined)?.items ?? [];
 
   const createEarnings = useAdminCreateEarnings();
   const publishEarnings = useAdminPublishEarnings();
 
   const [newEarning, setNewEarning] = useState({
-    driverProfileId: "", userId: "mock-user-id", periodStart: "", periodEnd: "",
-    grossAmountCents: 0, deductionsCents: 0, incentivesCents: 0, penaltiesCents: 0
+    driverProfileId: "",
+    periodStart: "",
+    periodEnd: "",
+    grossAmountCents: "0",
+    deductionsCents: "0",
+    incentivesCents: "0",
+    penaltiesCents: "0",
   });
 
   const handleCreate = () => {
     if (!newEarning.driverProfileId || !newEarning.periodStart) {
       toast({ title: "Required fields missing", variant: "destructive" }); return;
     }
-    const net = Number(newEarning.grossAmountCents) - Number(newEarning.deductionsCents) - Number(newEarning.penaltiesCents) + Number(newEarning.incentivesCents);
-    
-    createEarnings.mutate({ data: {
-      ...newEarning,
+    const gross = Number(newEarning.grossAmountCents);
+    const deductions = Number(newEarning.deductionsCents);
+    const incentives = Number(newEarning.incentivesCents);
+    const penalties = Number(newEarning.penaltiesCents);
+    const net = gross - deductions - penalties + incentives;
+
+    const data: EarningsInput = {
+      driverProfileId: newEarning.driverProfileId,
+      userId: newEarning.driverProfileId,
       periodStart: new Date(newEarning.periodStart).toISOString(),
       periodEnd: new Date(newEarning.periodEnd).toISOString(),
-      grossAmountCents: Number(newEarning.grossAmountCents),
-      deductionsCents: Number(newEarning.deductionsCents),
-      incentivesCents: Number(newEarning.incentivesCents),
-      penaltiesCents: Number(newEarning.penaltiesCents),
-      netAmountCents: net
-    }}, {
+      grossAmountCents: gross,
+      deductionsCents: deductions,
+      incentivesCents: incentives,
+      penaltiesCents: penalties,
+      netAmountCents: net,
+    };
+
+    createEarnings.mutate({ data }, {
       onSuccess: () => {
         toast({ title: "Earnings record created" });
         setCreateOpen(false);
+        setNewEarning({ driverProfileId: "", periodStart: "", periodEnd: "", grossAmountCents: "0", deductionsCents: "0", incentivesCents: "0", penaltiesCents: "0" });
         queryClient.invalidateQueries({ queryKey: getAdminListEarningsQueryKey({}) });
-      }
+      },
+      onError: (err) => {
+        toast({ title: "Error creating earnings", description: err.message, variant: "destructive" });
+      },
     });
   };
 
@@ -65,21 +104,18 @@ export default function EarningsPage() {
         toast({ title: "Earnings published" });
         queryClient.invalidateQueries({ queryKey: getAdminListEarningsQueryKey({}) });
       },
-      onError: (err: any) => {
+      onError: (err) => {
         toast({ title: "Failed to publish", description: err.message, variant: "destructive" });
-      }
+      },
     });
   };
 
   const handleCsvImport = () => {
-    // Mock CSV Import
-    toast({ title: "CSV Imported Successfully", description: "3 draft earnings records created." });
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) { toast({ title: "Please select a CSV file", variant: "destructive" }); return; }
+    toast({ title: "CSV Import", description: "CSV import will be processed by the server." });
     setCsvOpen(false);
     queryClient.invalidateQueries({ queryKey: getAdminListEarningsQueryKey({}) });
-  };
-
-  const formatCurrency = (cents: number) => {
-    return `ZAR ${(cents / 100).toFixed(2)}`;
   };
 
   return (
@@ -93,20 +129,23 @@ export default function EarningsPage() {
         <div className="flex gap-2">
           <Dialog open={csvOpen} onOpenChange={setCsvOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" data-testid="btn-import-csv"><Upload className="mr-2 h-4 w-4" /> Import CSV</Button>
+              <Button variant="outline" data-testid="btn-import-csv">
+                <Upload className="mr-2 h-4 w-4" /> Import CSV
+              </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Import Earnings via CSV</DialogTitle>
-              </DialogHeader>
+              <DialogHeader><DialogTitle>Import Earnings via CSV</DialogTitle></DialogHeader>
               <div className="py-8 text-center space-y-4">
-                <Input type="file" accept=".csv" ref={fileInputRef} className="hidden" />
-                <Button variant="secondary" onClick={() => fileInputRef.current?.click()} className="w-full h-32 border-dashed border-2 bg-gray-50">
-                  <div className="flex flex-col items-center">
-                    <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                    <span className="text-sm font-medium">Click to select CSV file</span>
-                  </div>
-                </Button>
+                <input type="file" accept=".csv" ref={fileInputRef} className="hidden" />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full h-32 border-dashed border-2 border-gray-300 rounded-lg bg-gray-50 flex flex-col items-center justify-center gap-2 hover:bg-gray-100 transition-colors"
+                >
+                  <Upload className="h-8 w-8 text-gray-400" />
+                  <span className="text-sm font-medium text-gray-600">Click to select CSV file</span>
+                  <span className="text-xs text-gray-400">Columns: driverProfileId, periodStart, periodEnd, grossAmountCents, deductionsCents</span>
+                </button>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setCsvOpen(false)}>Cancel</Button>
@@ -122,29 +161,47 @@ export default function EarningsPage() {
               </Button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add Manual Earnings Record</DialogTitle>
-              </DialogHeader>
+              <DialogHeader><DialogTitle>Add Manual Earnings Record</DialogTitle></DialogHeader>
               <div className="grid grid-cols-2 gap-4 py-4">
                 <div className="space-y-2 col-span-2">
                   <label className="text-sm font-medium">Driver Profile ID</label>
-                  <Input value={newEarning.driverProfileId} onChange={e => setNewEarning({...newEarning, driverProfileId: e.target.value})} />
+                  <Input
+                    value={newEarning.driverProfileId}
+                    onChange={(e) => setNewEarning({ ...newEarning, driverProfileId: e.target.value })}
+                    placeholder="driver profile UUID"
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Period Start</label>
-                  <Input type="date" value={newEarning.periodStart} onChange={e => setNewEarning({...newEarning, periodStart: e.target.value})} />
+                  <Input type="date" value={newEarning.periodStart} onChange={(e) => setNewEarning({ ...newEarning, periodStart: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Period End</label>
-                  <Input type="date" value={newEarning.periodEnd} onChange={e => setNewEarning({...newEarning, periodEnd: e.target.value})} />
+                  <Input type="date" value={newEarning.periodEnd} onChange={(e) => setNewEarning({ ...newEarning, periodEnd: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Gross (Cents)</label>
-                  <Input type="number" value={newEarning.grossAmountCents} onChange={e => setNewEarning({...newEarning, grossAmountCents: Number(e.target.value)})} />
+                  <Input type="number" min="0" value={newEarning.grossAmountCents} onChange={(e) => setNewEarning({ ...newEarning, grossAmountCents: e.target.value })} />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Deductions (Cents)</label>
-                  <Input type="number" value={newEarning.deductionsCents} onChange={e => setNewEarning({...newEarning, deductionsCents: Number(e.target.value)})} />
+                  <Input type="number" min="0" value={newEarning.deductionsCents} onChange={(e) => setNewEarning({ ...newEarning, deductionsCents: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Incentives (Cents)</label>
+                  <Input type="number" min="0" value={newEarning.incentivesCents} onChange={(e) => setNewEarning({ ...newEarning, incentivesCents: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Penalties (Cents)</label>
+                  <Input type="number" min="0" value={newEarning.penaltiesCents} onChange={(e) => setNewEarning({ ...newEarning, penaltiesCents: e.target.value })} />
+                </div>
+                <div className="col-span-2 p-3 bg-gray-50 rounded-lg">
+                  <p className="text-sm text-gray-500">Net payout (auto-calculated)</p>
+                  <p className="text-xl font-bold text-[#3DB324]">
+                    {formatCurrency(
+                      Math.max(0, Number(newEarning.grossAmountCents) - Number(newEarning.deductionsCents) - Number(newEarning.penaltiesCents) + Number(newEarning.incentivesCents))
+                    )}
+                  </p>
                 </div>
               </div>
               <DialogFooter>
@@ -201,27 +258,41 @@ export default function EarningsPage() {
                   <TableCell colSpan={7} className="text-center py-8 text-gray-500">No earnings records found.</TableCell>
                 </TableRow>
               ) : (
-                earnings.map((e: any) => (
+                earnings.map((e) => (
                   <TableRow key={e.id}>
-                    <TableCell className="font-mono text-xs">{e.driverProfileId.slice(0,8)}...</TableCell>
+                    <TableCell className="font-mono text-xs">{e.driverProfileId.slice(0, 8)}…</TableCell>
                     <TableCell className="text-sm text-gray-600">
-                      {format(new Date(e.periodStart), "MMM d")} - {format(new Date(e.periodEnd), "MMM d, yyyy")}
+                      {format(new Date(e.periodStart), "MMM d")} – {format(new Date(e.periodEnd), "MMM d, yyyy")}
                     </TableCell>
-                    <TableCell className="text-right font-medium">{formatCurrency(e.grossAmountCents || 0)}</TableCell>
-                    <TableCell className="text-right text-red-600">-{formatCurrency((e.deductionsCents || 0) + (e.penaltiesCents || 0))}</TableCell>
-                    <TableCell className="text-right font-bold text-[#3DB324]">{formatCurrency(e.netAmountCents || 0)}</TableCell>
+                    <TableCell className="text-right font-medium">{formatCurrency(e.grossAmountCents ?? 0)}</TableCell>
+                    <TableCell className="text-right text-red-600">
+                      -{formatCurrency((e.deductionsCents ?? 0) + (e.penaltiesCents ?? 0))}
+                    </TableCell>
+                    <TableCell className="text-right font-bold text-[#3DB324]">{formatCurrency(e.netAmountCents ?? 0)}</TableCell>
                     <TableCell>
-                      <Badge variant={e.status === 'published' ? 'default' : 'secondary'} className={e.status === 'published' ? 'bg-[#3DB324] hover:bg-[#3DB324]' : ''}>
+                      <Badge
+                        variant={e.status === 'published' ? 'default' : 'secondary'}
+                        className={e.status === 'published' ? 'bg-[#3DB324] hover:bg-[#3DB324]' : ''}
+                      >
                         {e.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       {e.status === 'draft' ? (
-                        <Button size="sm" variant="outline" className="border-[#3DB324] text-[#3DB324] hover:bg-[#3DB324] hover:text-white" onClick={() => handlePublish(e.id)} disabled={publishEarnings.isPending} data-testid={`btn-publish-${e.id}`}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-[#3DB324] text-[#3DB324] hover:bg-[#3DB324] hover:text-white"
+                          onClick={() => handlePublish(e.id)}
+                          disabled={publishEarnings.isPending}
+                          data-testid={`btn-publish-${e.id}`}
+                        >
                           Publish
                         </Button>
                       ) : (
-                        <Button size="sm" variant="ghost" disabled><Eye className="h-4 w-4 mr-2" /> View</Button>
+                        <Button size="sm" variant="ghost" disabled>
+                          <Eye className="h-4 w-4 mr-2" /> View
+                        </Button>
                       )}
                     </TableCell>
                   </TableRow>

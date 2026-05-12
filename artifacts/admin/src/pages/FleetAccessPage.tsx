@@ -8,16 +8,31 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { format } from "date-fns";
 
+interface AccessEvent {
+  id: string;
+  createdAt: string;
+  driverProfileId: string;
+  vehicleId: string;
+  eventType: string;
+  biometricResult?: string;
+  status: string;
+}
+
+interface AccessEventsData {
+  items: AccessEvent[];
+}
+
 export default function FleetAccessPage() {
   const [vehicleId, setVehicleId] = useState("");
   const [driverProfileId, setDriverProfileId] = useState("");
+  const [eventType, setEventType] = useState<string>("all");
 
   const { data: eventsRes, isLoading } = useAdminListVehicleAccessEvents({
     vehicleId: vehicleId || undefined,
-    driverProfileId: driverProfileId || undefined
+    driverProfileId: driverProfileId || undefined,
   });
-  
-  const events = (eventsRes as any)?.data?.items || [];
+  const allEvents = (eventsRes?.data as AccessEventsData | undefined)?.items ?? [];
+  const events = eventType === "all" ? allEvents : allEvents.filter((e) => e.eventType === eventType);
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto">
@@ -26,19 +41,32 @@ export default function FleetAccessPage() {
         <p className="text-gray-500">Audit trail of vehicle unlock and ignition events.</p>
       </div>
 
-      <div className="flex gap-4">
-        <Input 
-          placeholder="Filter by Vehicle ID..." 
+      <div className="flex flex-col sm:flex-row gap-4">
+        <Input
+          placeholder="Filter by Vehicle ID..."
           value={vehicleId}
           onChange={(e) => setVehicleId(e.target.value)}
           className="max-w-xs"
         />
-        <Input 
-          placeholder="Filter by Driver Profile ID..." 
+        <Input
+          placeholder="Filter by Driver Profile ID..."
           value={driverProfileId}
           onChange={(e) => setDriverProfileId(e.target.value)}
           className="max-w-xs"
         />
+        <Select value={eventType} onValueChange={setEventType}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Event Type" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Event Types</SelectItem>
+            <SelectItem value="unlock">Unlock</SelectItem>
+            <SelectItem value="lock">Lock</SelectItem>
+            <SelectItem value="ignition_on">Ignition On</SelectItem>
+            <SelectItem value="ignition_off">Ignition Off</SelectItem>
+            <SelectItem value="biometric_check">Biometric Check</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       <Card>
@@ -71,23 +99,29 @@ export default function FleetAccessPage() {
                   <TableCell colSpan={6} className="text-center py-8 text-gray-500">No access events found.</TableCell>
                 </TableRow>
               ) : (
-                events.map((e: any) => (
+                events.map((e) => (
                   <TableRow key={e.id}>
                     <TableCell className="text-sm text-gray-600">
                       {format(new Date(e.createdAt), "MMM d, yyyy HH:mm:ss")}
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{e.driverProfileId.slice(0, 8)}...</TableCell>
-                    <TableCell className="font-mono text-xs">{e.vehicleId.slice(0, 8)}...</TableCell>
-                    <TableCell className="capitalize">{e.eventType}</TableCell>
+                    <TableCell className="font-mono text-xs">{e.driverProfileId.slice(0, 8)}…</TableCell>
+                    <TableCell className="font-mono text-xs">{e.vehicleId.slice(0, 8)}…</TableCell>
+                    <TableCell className="capitalize">{e.eventType.replace(/_/g, ' ')}</TableCell>
                     <TableCell>
                       {e.biometricResult ? (
-                        <Badge variant={e.biometricResult === 'pass' ? 'default' : 'destructive'} className="text-[10px] uppercase tracking-wider">
+                        <Badge
+                          variant={e.biometricResult === 'pass' ? 'default' : 'destructive'}
+                          className="text-[10px] uppercase tracking-wider"
+                        >
                           {e.biometricResult}
                         </Badge>
-                      ) : '-'}
+                      ) : '—'}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={e.status === 'success' ? 'default' : e.status === 'failed' ? 'destructive' : 'secondary'} className={e.status === 'success' ? 'bg-[#3DB324] hover:bg-[#3DB324]' : ''}>
+                      <Badge
+                        variant={e.status === 'success' ? 'default' : e.status === 'failed' ? 'destructive' : 'secondary'}
+                        className={e.status === 'success' ? 'bg-[#3DB324] hover:bg-[#3DB324]' : ''}
+                      >
                         {e.status}
                       </Badge>
                     </TableCell>

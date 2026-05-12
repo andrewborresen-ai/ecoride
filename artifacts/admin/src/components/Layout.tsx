@@ -10,6 +10,7 @@ import {
   Key,
   DollarSign,
   Bell,
+  Settings,
   LogOut,
   Menu
 } from "lucide-react";
@@ -25,6 +26,7 @@ const NAV_ITEMS = [
   { href: "/fleet-access", label: "Fleet Access", icon: Key },
   { href: "/earnings", label: "Earnings", icon: DollarSign },
   { href: "/notifications", label: "Notifications", icon: Bell },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function Sidebar() {
@@ -100,7 +102,7 @@ export function Layout({ children }: { children: ReactNode }) {
             </Sheet>
             <span className="font-bold text-[#1C2126]">EcoRide Admin</span>
           </div>
-          
+
           <div className="ml-auto flex items-center gap-4">
             <span className="text-sm font-medium text-gray-700">
               {user?.primaryEmailAddress?.emailAddress}
