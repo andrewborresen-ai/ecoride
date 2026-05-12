@@ -6,7 +6,7 @@ import {
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { useSignOut } from "@clerk/clerk-expo";
+import { useClerk } from "@clerk/clerk-expo";
 import * as Haptics from "expo-haptics";
 import * as ImagePicker from "expo-image-picker";
 import { useColors } from "@/hooks/useColors";
@@ -53,7 +53,7 @@ export default function ProfileScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { signOut } = useSignOut();
+  const { signOut } = useClerk();
   const { data: profileRes, refetch: refetchProfile } = useGetMyProfile();
   const { data: docsRes, refetch: refetchDocs } = useGetMyDocuments();
   const { mutateAsync: updateProfile } = useUpdateMyProfile();
@@ -68,6 +68,8 @@ export default function ProfileScreen() {
   const [phone, setPhone] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [reuploadingDoc, setReuploadingDoc] = useState<string | null>(null);
+
+  void router;
 
   useEffect(() => {
     if (profile) setPhone(profile.phone ?? "");

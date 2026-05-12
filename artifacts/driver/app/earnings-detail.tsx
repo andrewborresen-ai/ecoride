@@ -70,12 +70,13 @@ export default function EarningsDetailScreen() {
 
   const period = formatPeriod(earning.periodStart, earning.periodEnd);
 
-  const lineItems: LineItem[] = [
+  const allLineItems: LineItem[] = [
     { label: "Gross Earnings", cents: earning.grossAmountCents, icon: "trending-up", color: colors.success, sign: "+" },
     { label: "Deductions", cents: earning.deductionsCents, icon: "minus-circle", color: colors.destructive, sign: "-" },
     { label: "Incentives", cents: earning.incentivesCents, icon: "star", color: colors.warning, sign: "+" },
     { label: "Penalties", cents: earning.penaltiesCents, icon: "alert-triangle", color: colors.destructive, sign: "-" },
-  ].filter((item) => item.cents > 0);
+  ];
+  const lineItems = allLineItems.filter((item) => item.cents > 0);
 
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>

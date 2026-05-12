@@ -14,6 +14,8 @@ import {
   useGetMyAllocations,
   useRequestShift,
   useCancelMyAllocation,
+  getListOpenShiftsQueryKey,
+  getGetMyAllocationsQueryKey,
 } from "@workspace/api-client-react";
 import { apiData } from "@/types/api";
 import type { Shift, Allocation } from "@/types/api";
@@ -43,11 +45,17 @@ export default function ShiftsScreen() {
 
   const isMyShiftsTab = activeTab !== "available";
 
-  const openShiftsQuery = useListOpenShifts({
-    query: { enabled: activeTab === "available" },
+  const openShiftsQuery = useListOpenShifts(undefined, {
+    query: {
+      enabled: activeTab === "available",
+      queryKey: getListOpenShiftsQueryKey(),
+    },
   });
   const myAllocationsQuery = useGetMyAllocations(undefined, {
-    query: { enabled: isMyShiftsTab },
+    query: {
+      enabled: isMyShiftsTab,
+      queryKey: getGetMyAllocationsQueryKey(),
+    },
   });
 
   const { mutateAsync: requestShift } = useRequestShift();

@@ -10,11 +10,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useColors } from "@/hooks/useColors";
 import { useGetMyNotifications } from "@workspace/api-client-react";
+import { apiData } from "@/types/api";
+import type { Notification } from "@/types/api";
 
 function useUnreadCount() {
   const { data } = useGetMyNotifications();
-  const notifs: any[] = (data as any)?.data ?? [];
-  return notifs.filter((n: any) => n.status === "unread").length;
+  const notifs: Notification[] = apiData<Notification[]>(data) ?? [];
+  return notifs.filter((n) => n.status === "unread").length;
 }
 
 function NativeTabLayout() {
@@ -26,7 +28,7 @@ function NativeTabLayout() {
         <Label>Home</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="shifts">
-        <Icon sf={{ default: "calendar", selected: "calendar.fill" }} />
+        <Icon sf={{ default: "calendar", selected: "calendar" }} />
         <Label>Shifts</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="earnings">
@@ -36,7 +38,7 @@ function NativeTabLayout() {
       <NativeTabs.Trigger name="notifications">
         <Icon sf={{ default: "bell", selected: "bell.fill" }} />
         <Label>Alerts</Label>
-        {unread > 0 && <Badge>{unread}</Badge>}
+        {unread > 0 && <Badge>{String(unread)}</Badge>}
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />

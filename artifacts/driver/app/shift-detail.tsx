@@ -8,7 +8,11 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { StatusBadge } from "@/components/StatusBadge";
-import { useGetMyAllocations, useRequestVehicleUnlock } from "@workspace/api-client-react";
+import {
+  useGetMyAllocations,
+  useRequestVehicleUnlock,
+  getGetMyAllocationsQueryKey,
+} from "@workspace/api-client-react";
 import { apiData } from "@/types/api";
 import type { Allocation } from "@/types/api";
 
@@ -30,7 +34,12 @@ export default function ShiftDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  const allocationsQuery = useGetMyAllocations(undefined, { query: { enabled: !!id } });
+  const allocationsQuery = useGetMyAllocations(undefined, {
+    query: {
+      enabled: !!id,
+      queryKey: getGetMyAllocationsQueryKey(),
+    },
+  });
   const allocations = apiData<Allocation[]>(allocationsQuery.data) ?? [];
   const allocation = allocations.find((a) => a.id === id) ?? null;
 

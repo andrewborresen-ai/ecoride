@@ -20,10 +20,13 @@ export default function SignUpScreen() {
 
   const [step, setStep] = useState<"details" | "verify">("details");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  void router;
 
   const handleSignUp = async () => {
     if (!isLoaded || !email || !password) return;
@@ -123,6 +126,20 @@ export default function SignUpScreen() {
                   autoComplete="email"
                   returnKeyType="next"
                   testID="email-input"
+                />
+              </View>
+              <View style={s.fieldGroup}>
+                <Text style={[s.label, { color: colors.foreground }]}>Phone Number</Text>
+                <TextInput
+                  style={[s.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.foreground }]}
+                  placeholder="+27 82 000 0000"
+                  placeholderTextColor={colors.mutedForeground}
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                  autoComplete="tel"
+                  returnKeyType="next"
+                  testID="phone-input"
                 />
               </View>
               <View style={s.fieldGroup}>

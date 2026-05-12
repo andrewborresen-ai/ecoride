@@ -1,17 +1,8 @@
 import React, { createContext, useContext } from "react";
-import { useGetMyProfile } from "@workspace/api-client-react";
+import { useGetMyProfile, getGetMyProfileQueryKey } from "@workspace/api-client-react";
 import { useAuth } from "@clerk/clerk-expo";
-
-interface DriverProfile {
-  id: string;
-  userId: string;
-  status: string;
-  firstName: string | null;
-  lastName: string | null;
-  phone: string | null;
-  fleetType: string | null;
-  [key: string]: unknown;
-}
+import { apiData } from "@/types/api";
+import type { DriverProfile } from "@/types/api";
 
 interface DriverContextValue {
   profile: DriverProfile | null;
@@ -28,10 +19,13 @@ const DriverContext = createContext<DriverContextValue>({
 export function DriverProvider({ children }: { children: React.ReactNode }) {
   const { isSignedIn, isLoaded } = useAuth();
   const query = useGetMyProfile({
-    query: { enabled: isLoaded && !!isSignedIn },
+    query: {
+      enabled: isLoaded && !!isSignedIn,
+      queryKey: getGetMyProfileQueryKey(),
+    },
   });
 
-  const profile = (query.data as any)?.data ?? null;
+  const profile = apiData<DriverProfile>(query.data);
 
   return (
     <DriverContext.Provider

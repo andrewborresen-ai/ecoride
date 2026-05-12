@@ -3,7 +3,7 @@ import { View, Text, Pressable, StyleSheet, Platform, Linking, ScrollView } from
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
-import { useSignOut } from "@clerk/clerk-expo";
+import { useClerk } from "@clerk/clerk-expo";
 import { useColors } from "@/hooks/useColors";
 import { StatusBadge } from "@/components/StatusBadge";
 import { useGetMyProfile } from "@workspace/api-client-react";
@@ -16,7 +16,7 @@ export default function AccountStatusScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { signOut } = useSignOut();
+  const { signOut } = useClerk();
   const { data: profileRes, isLoading } = useGetMyProfile();
   const profile = apiData<DriverProfile>(profileRes);
 
@@ -46,6 +46,8 @@ export default function AccountStatusScreen() {
   const s = makeStyles(colors);
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 24);
 
+  void isLoading;
+
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
       <ScrollView
@@ -66,7 +68,7 @@ export default function AccountStatusScreen() {
         {isRejected && (
           <Pressable
             style={({ pressed }) => [s.primaryBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 }]}
-            onPress={() => router.push("/(onboarding)/index")}
+            onPress={() => router.push("/(onboarding)/home")}
           >
             <Feather name="edit-2" size={18} color="#fff" />
             <Text style={s.primaryBtnText}>Update & Reapply</Text>

@@ -150,7 +150,7 @@ export default function OnboardingHome() {
         >
           <Text style={[s.sectionLabel, { color: colors.mutedForeground }]}>REQUIRED STEPS</Text>
 
-          {steps.map((step, index) => (
+          {steps.map((step) => (
             <Pressable
               key={step.key}
               style={({ pressed }) => [
@@ -161,7 +161,7 @@ export default function OnboardingHome() {
                   opacity: pressed ? 0.85 : 1,
                 },
               ]}
-              onPress={() => { Haptics.selectionAsync(); router.push(step.route as any); }}
+              onPress={() => { Haptics.selectionAsync(); router.push(step.route as never); }}
               testID={`step-${step.key}`}
             >
               <View style={[s.stepIcon, { backgroundColor: step.complete ? colors.primary + "20" : colors.muted }]}>

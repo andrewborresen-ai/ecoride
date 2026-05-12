@@ -57,7 +57,7 @@ export default function AgreementStep() {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
       await signAgreement({ data: { legalName } });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      router.push("/(onboarding)/index");
+      router.push("/(onboarding)/home");
     } catch (err: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       const e = err as { message?: string };
