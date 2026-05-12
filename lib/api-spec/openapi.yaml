@@ -1227,14 +1227,11 @@ components:
 
     RegisterInput:
       type: object
-      required: [clerkId, email, role]
+      required: [email]
       properties:
-        clerkId:
-          type: string
         email:
           type: string
-        role:
-          type: string
+          format: email
 
     DriverProfileUpdate:
       type: object

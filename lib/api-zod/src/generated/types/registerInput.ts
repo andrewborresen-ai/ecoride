@@ -7,7 +7,5 @@
  */
 
 export interface RegisterInput {
-  clerkId: string;
   email: string;
-  role: string;
 }

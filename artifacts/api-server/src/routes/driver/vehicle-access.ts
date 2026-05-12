@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, driverProfilesTable, vehicleAssignmentsTable, vehiclesTable, vehicleAccessEventsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { requireAuth } from "../../middlewares/auth";
+import { requireDriver } from "../../middlewares/auth";
 import type { AuthenticatedRequest } from "../../middlewares/auth";
 import { ok } from "../../lib/response";
 import { newId } from "../../lib/ids";
@@ -9,7 +9,7 @@ import * as telematics from "../../integrations/telematics";
 
 const router: IRouter = Router();
 
-router.get("/v1/drivers/me/vehicle-assignment", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/v1/drivers/me/vehicle-assignment", requireDriver, async (req: AuthenticatedRequest, res): Promise<void> => {
   const [profile] = await db.select().from(driverProfilesTable).where(eq(driverProfilesTable.userId, req.userId!));
   if (!profile) {
     res.status(404).json({ success: false, error: "Profile not found", data: null, meta: null });
@@ -30,7 +30,7 @@ router.get("/v1/drivers/me/vehicle-assignment", requireAuth, async (req: Authent
   res.json(ok({ assignment, vehicle: vehicle ?? null }));
 });
 
-router.post("/v1/drivers/me/vehicle-assignments/:assignmentId/unlock", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/v1/drivers/me/vehicle-assignments/:assignmentId/unlock", requireDriver, async (req: AuthenticatedRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.assignmentId) ? req.params.assignmentId[0] : req.params.assignmentId;
 
   const [profile] = await db.select().from(driverProfilesTable).where(eq(driverProfilesTable.userId, req.userId!));
@@ -131,7 +131,96 @@ router.post("/v1/drivers/me/vehicle-assignments/:assignmentId/unlock", requireAu
   res.json(ok({ accessEventId, telematicsRequestId: result.telematicsRequestId }));
 });
 
-router.get("/v1/drivers/me/vehicle-assignments/:assignmentId/access-status", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.post("/v1/drivers/me/vehicle-assignments/:assignmentId/ignition-validate", requireDriver, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const raw = Array.isArray(req.params.assignmentId) ? req.params.assignmentId[0] : req.params.assignmentId;
+
+  const [profile] = await db.select().from(driverProfilesTable).where(eq(driverProfilesTable.userId, req.userId!));
+  if (!profile) {
+    res.status(404).json({ success: false, error: "Profile not found", data: null, meta: null });
+    return;
+  }
+
+  if (profile.status !== "approved") {
+    res.status(403).json({ success: false, error: "Account not approved", data: null, meta: null });
+    return;
+  }
+
+  const [assignment] = await db
+    .select()
+    .from(vehicleAssignmentsTable)
+    .where(and(eq(vehicleAssignmentsTable.id, raw), eq(vehicleAssignmentsTable.driverProfileId, profile.id)));
+
+  if (!assignment || assignment.status !== "active") {
+    res.status(404).json({ success: false, error: "No active assignment found", data: null, meta: null });
+    return;
+  }
+
+  const [vehicle] = await db.select().from(vehiclesTable).where(eq(vehiclesTable.id, assignment.vehicleId));
+  if (!vehicle || vehicle.telematicsEnabled !== "true") {
+    res.status(400).json({ success: false, error: "Vehicle not connected to telematics", data: null, meta: null });
+    return;
+  }
+
+  if (!profile.telematicsDriverId || !assignment.telematicsAssignmentId) {
+    res.status(400).json({ success: false, error: "Telematics IDs missing — contact support", data: null, meta: null });
+    return;
+  }
+
+  const now = new Date();
+  const accessEventId = newId();
+  await db.insert(vehicleAccessEventsTable).values({
+    id: accessEventId,
+    vehicleAssignmentId: assignment.id,
+    vehicleId: vehicle.id,
+    driverProfileId: profile.id,
+    userId: req.userId!,
+    eventType: "ignition_validation",
+    eventStatus: "pending",
+    requestedAt: now,
+    status: "pending",
+  });
+
+  const biometricToken = typeof req.body?.biometricToken === "string" ? req.body.biometricToken : undefined;
+
+  const result = await telematics.triggerIgnitionValidation({
+    vehicleAccessEventId: accessEventId,
+    telematicsAssignmentId: assignment.telematicsAssignmentId,
+    telematicsDriverId: profile.telematicsDriverId,
+    telematicsVehicleId: vehicle.telematicsVehicleId!,
+    biometricToken,
+  });
+
+  const eventStatus = result.success ? (result.status === "passed" ? "success" : "pending") : "failed";
+  await db
+    .update(vehicleAccessEventsTable)
+    .set({
+      eventStatus,
+      telematicsRequestId: result.validationRequestId ?? null,
+      failureReason: result.failureReason ?? null,
+      status: eventStatus,
+    })
+    .where(eq(vehicleAccessEventsTable.id, accessEventId));
+
+  if (!result.success) {
+    req.log.warn({ assignmentId: raw, error: result.error }, "Ignition validation failed to initiate");
+    res.status(422).json({
+      success: false,
+      error: result.error ?? "Ignition validation failed",
+      data: { accessEventId },
+      meta: null,
+    });
+    return;
+  }
+
+  req.log.info({ accessEventId, assignmentId: raw, status: result.status }, "Ignition validation triggered");
+  res.json(ok({
+    accessEventId,
+    validationRequestId: result.validationRequestId,
+    status: result.status,
+  }));
+});
+
+router.get("/v1/drivers/me/vehicle-assignments/:assignmentId/access-status", requireDriver, async (req: AuthenticatedRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.assignmentId) ? req.params.assignmentId[0] : req.params.assignmentId;
 
   const [profile] = await db.select().from(driverProfilesTable).where(eq(driverProfilesTable.userId, req.userId!));
@@ -150,11 +239,17 @@ router.get("/v1/drivers/me/vehicle-assignments/:assignmentId/access-status", req
     return;
   }
 
+  const recentEvents = await db
+    .select()
+    .from(vehicleAccessEventsTable)
+    .where(eq(vehicleAccessEventsTable.vehicleAssignmentId, assignment.id));
+
   res.json(ok({
     assignmentId: assignment.id,
     status: assignment.status,
     lastUnlockStatus: assignment.lastUnlockStatus,
     lastUnlockAttemptAt: assignment.lastUnlockAttemptAt,
+    recentAccessEvents: recentEvents.slice(-10),
   }));
 });
 

@@ -28,9 +28,7 @@ export const GetMeResponse = zod.object({
  * @summary Register user and create driver profile
  */
 export const RegisterUserBody = zod.object({
-  clerkId: zod.string(),
-  email: zod.string(),
-  role: zod.string(),
+  email: zod.string().email(),
 });
 
 /**

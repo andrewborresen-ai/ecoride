@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { db, driverProfilesTable, agreementsTable, agreementSignaturesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { requireAuth } from "../../middlewares/auth";
+import { requireDriver as requireAuth } from "../../middlewares/auth";
 import type { AuthenticatedRequest } from "../../middlewares/auth";
 import { ok } from "../../lib/response";
 import { newId } from "../../lib/ids";

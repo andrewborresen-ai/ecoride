@@ -18,9 +18,7 @@ export interface ApiResponse {
 }
 
 export interface RegisterInput {
-  clerkId: string;
   email: string;
-  role: string;
 }
 
 export interface DriverProfileUpdate {

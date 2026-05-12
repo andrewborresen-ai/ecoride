@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { db, driverProfilesTable, shiftAllocationsTable, shiftsTable, earningsTable, notificationsTable, vehicleAssignmentsTable, vehiclesTable } from "@workspace/db";
 import { eq, and, gte, lte, count } from "drizzle-orm";
-import { requireAuth } from "../../middlewares/auth";
+import { requireDriver as requireAuth } from "../../middlewares/auth";
 import type { AuthenticatedRequest } from "../../middlewares/auth";
 import { ok } from "../../lib/response";
 
