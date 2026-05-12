@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
-  View, Text, Pressable, StyleSheet, ActivityIndicator, Alert, Platform, TextInput, ScrollView,
+  View, Text, Pressable, StyleSheet, ActivityIndicator, Platform, TextInput, ScrollView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -32,6 +32,7 @@ export default function FleetStep() {
   const [boltDriverId, setBoltDriverId] = useState("");
   const [boltAccepted, setBoltAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     if (profile) {
@@ -42,6 +43,7 @@ export default function FleetStep() {
   }, [profile?.id]);
 
   const handleNext = async () => {
+    setErrorMsg("");
     try {
       setIsLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -54,7 +56,7 @@ export default function FleetStep() {
       });
       router.push("/(onboarding)/documents");
     } catch {
-      Alert.alert("Error", "Failed to save. Please try again.");
+      setErrorMsg("Failed to save. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -125,6 +127,12 @@ export default function FleetStep() {
       </ScrollView>
 
       <View style={[s.footer, { paddingBottom: insets.bottom + (Platform.OS === "web" ? 24 : 16) }]}>
+        {!!errorMsg && (
+          <View style={[s.errorBox, { backgroundColor: "#FEE2E2", borderColor: "#FECACA" }]}>
+            <Feather name="alert-circle" size={14} color="#B91C1C" />
+            <Text style={s.errorText}>{errorMsg}</Text>
+          </View>
+        )}
         <Pressable style={({ pressed }) => [s.nextBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 }]} onPress={handleNext} disabled={isLoading}>
           {isLoading ? <ActivityIndicator color="#fff" /> : <><Text style={s.nextBtnText}>Continue</Text><Feather name="arrow-right" size={18} color="#fff" /></>}
         </Pressable>
@@ -154,6 +162,8 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     checkbox: { width: 20, height: 20, borderRadius: 4, borderWidth: 1.5, alignItems: "center", justifyContent: "center", marginTop: 2 },
     checkText: { flex: 1, fontSize: 14, fontFamily: "Inter_400Regular", lineHeight: 20 },
     footer: { paddingHorizontal: 24, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.background },
+    errorBox: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 },
+    errorText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#B91C1C" },
     nextBtn: { height: 54, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
     nextBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold" },
   });

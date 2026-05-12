@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
-  View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, Alert, ScrollView, Platform,
+  View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, ScrollView, Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,6 +27,7 @@ export default function BankingStep() {
   const [accountType, setAccountType] = useState("Cheque");
   const [branchCode, setBranchCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     if (profile) {
@@ -38,8 +39,9 @@ export default function BankingStep() {
   }, [profile?.id]);
 
   const handleNext = async () => {
+    setErrorMsg("");
     if (!bankName || !accountNumber || !branchCode) {
-      Alert.alert("Required", "Please complete bank name, account number and branch code.");
+      setErrorMsg("Please complete bank name, account number and branch code.");
       return;
     }
     try {
@@ -48,7 +50,7 @@ export default function BankingStep() {
       await updateProfile({ data: { bankName, accountNumber, accountType, branchCode } });
       router.push("/(onboarding)/fleet");
     } catch {
-      Alert.alert("Error", "Failed to save. Please try again.");
+      setErrorMsg("Failed to save. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -83,7 +85,7 @@ export default function BankingStep() {
             placeholder="e.g. FNB, Standard Bank, ABSA"
             placeholderTextColor={colors.mutedForeground}
             value={bankName}
-            onChangeText={setBankName}
+            onChangeText={(v) => { setBankName(v); setErrorMsg(""); }}
             autoCapitalize="words"
           />
         </View>
@@ -95,7 +97,7 @@ export default function BankingStep() {
             placeholder="Your bank account number"
             placeholderTextColor={colors.mutedForeground}
             value={accountNumber}
-            onChangeText={setAccountNumber}
+            onChangeText={(v) => { setAccountNumber(v); setErrorMsg(""); }}
             keyboardType="number-pad"
           />
         </View>
@@ -122,7 +124,7 @@ export default function BankingStep() {
             placeholder="6-digit branch code"
             placeholderTextColor={colors.mutedForeground}
             value={branchCode}
-            onChangeText={setBranchCode}
+            onChangeText={(v) => { setBranchCode(v); setErrorMsg(""); }}
             keyboardType="number-pad"
             maxLength={6}
           />
@@ -130,6 +132,12 @@ export default function BankingStep() {
       </ScrollView>
 
       <View style={[s.footer, { paddingBottom: insets.bottom + (Platform.OS === "web" ? 24 : 16) }]}>
+        {!!errorMsg && (
+          <View style={[s.errorBox, { backgroundColor: "#FEE2E2", borderColor: "#FECACA" }]}>
+            <Feather name="alert-circle" size={14} color="#B91C1C" />
+            <Text style={s.errorText}>{errorMsg}</Text>
+          </View>
+        )}
         <Pressable style={({ pressed }) => [s.nextBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 }]} onPress={handleNext} disabled={isLoading}>
           {isLoading ? <ActivityIndicator color="#fff" /> : <><Text style={s.nextBtnText}>Continue</Text><Feather name="arrow-right" size={18} color="#fff" /></>}
         </Pressable>
@@ -155,6 +163,8 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     typeBtn: { flex: 1, height: 44, borderRadius: 10, borderWidth: 1.5, alignItems: "center", justifyContent: "center" },
     typeText: { fontSize: 13, fontFamily: "Inter_500Medium" },
     footer: { paddingHorizontal: 24, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.background },
+    errorBox: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 },
+    errorText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#B91C1C" },
     nextBtn: { height: 54, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
     nextBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold" },
   });

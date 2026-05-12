@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import {
-  View, Text, Pressable, StyleSheet, ActivityIndicator, Alert, Platform, ScrollView, TextInput,
+  View, Text, Pressable, StyleSheet, ActivityIndicator, Platform, ScrollView, TextInput,
   PanResponder, GestureResponderEvent,
 } from "react-native";
 import Svg, { Path } from "react-native-svg";
@@ -129,6 +129,7 @@ export default function AgreementStep() {
   const [scrolledToBottom, setScrolledToBottom] = useState(false);
   const [accepted, setAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
   const signatureTimestamp = new Date();
 
   const hasDrawnSignature = strokes.length > 0;
@@ -136,16 +137,17 @@ export default function AgreementStep() {
   const handleClearSignature = () => { setStrokes([]); Haptics.selectionAsync(); };
 
   const handleSign = async () => {
+    setErrorMsg("");
     if (!legalName || !accepted) {
-      Alert.alert("Required", "Please enter your legal name and accept the agreement.");
+      setErrorMsg("Please enter your legal name and accept the agreement.");
       return;
     }
     if (!hasDrawnSignature) {
-      Alert.alert("Signature Required", "Please draw your signature in the signature pad.");
+      setErrorMsg("Please draw your signature in the signature pad.");
       return;
     }
     if (!agreement) {
-      Alert.alert("Error", "No active agreement found. Please contact support.");
+      setErrorMsg("No active agreement found. Please contact support.");
       return;
     }
     try {
@@ -178,7 +180,7 @@ export default function AgreementStep() {
     } catch (err: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       const e = err as { message?: string };
-      Alert.alert("Signature Failed", e?.message ?? "Please try again.");
+      setErrorMsg(e?.message ?? "Signature failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -307,6 +309,12 @@ export default function AgreementStep() {
           </ScrollView>
 
           <View style={[s.footer, { paddingBottom: insets.bottom + (Platform.OS === "web" ? 24 : 16) }]}>
+            {!!errorMsg && (
+              <View style={[s.errorBox, { backgroundColor: "#FEE2E2", borderColor: "#FECACA" }]}>
+                <Feather name="alert-circle" size={14} color="#B91C1C" />
+                <Text style={s.errorText}>{errorMsg}</Text>
+              </View>
+            )}
             <Pressable
               style={({ pressed }) => [s.signBtn, { backgroundColor: canSign ? colors.primary : colors.muted, opacity: pressed ? 0.85 : 1 }]}
               onPress={handleSign}
@@ -364,6 +372,8 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     signaturePreview: { flexDirection: "row", alignItems: "flex-start", gap: 10, borderRadius: 12, borderWidth: 1, padding: 14, marginTop: 16 },
     sigPreviewText: { flex: 1, fontSize: 13, fontFamily: "Inter_600SemiBold", lineHeight: 18 },
     footer: { paddingHorizontal: 24, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.background },
+    errorBox: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 },
+    errorText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#B91C1C" },
     signBtn: { height: 54, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10 },
     signBtnText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
     emptyState: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10 },

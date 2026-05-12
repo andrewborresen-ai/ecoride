@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import {
-  View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, Alert, ScrollView, Platform,
+  View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, ScrollView, Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,6 +27,7 @@ export default function AddressStep() {
   const [province, setProvince] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     if (profile) {
@@ -39,8 +40,9 @@ export default function AddressStep() {
   }, [profile?.id]);
 
   const handleNext = async () => {
+    setErrorMsg("");
     if (!streetAddress || !city || !province) {
-      Alert.alert("Required", "Please enter your street address, city and province.");
+      setErrorMsg("Please enter your street address, city and province.");
       return;
     }
     try {
@@ -49,7 +51,7 @@ export default function AddressStep() {
       await updateProfile({ data: { streetAddress, suburb: suburb || undefined, city, province, postalCode: postalCode || undefined } });
       router.push("/(onboarding)/banking");
     } catch {
-      Alert.alert("Error", "Failed to save. Please try again.");
+      setErrorMsg("Failed to save. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -57,6 +59,14 @@ export default function AddressStep() {
 
   const s = makeStyles(colors);
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 16);
+
+  const fields: { label: string; value: string; onChange: (v: string) => void; placeholder: string; keyboard?: "number-pad" }[] = [
+    { label: "Street Address *", value: streetAddress, onChange: setStreetAddress, placeholder: "123 Main Street" },
+    { label: "Suburb", value: suburb, onChange: setSuburb, placeholder: "Sandton" },
+    { label: "City *", value: city, onChange: setCity, placeholder: "Johannesburg" },
+    { label: "Province *", value: province, onChange: setProvince, placeholder: "Gauteng" },
+    { label: "Postal Code", value: postalCode, onChange: setPostalCode, placeholder: "2001", keyboard: "number-pad" },
+  ];
 
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
@@ -74,15 +84,7 @@ export default function AddressStep() {
       </View>
 
       <ScrollView style={s.scroll} contentContainerStyle={[s.form, { paddingBottom: insets.bottom + 100 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        {(
-          [
-            { label: "Street Address *", value: streetAddress, onChange: setStreetAddress, placeholder: "123 Main Street" },
-            { label: "Suburb", value: suburb, onChange: setSuburb, placeholder: "Sandton" },
-            { label: "City *", value: city, onChange: setCity, placeholder: "Johannesburg" },
-            { label: "Province *", value: province, onChange: setProvince, placeholder: "Gauteng" },
-            { label: "Postal Code", value: postalCode, onChange: setPostalCode, placeholder: "2001", keyboard: "number-pad" as const },
-          ] as { label: string; value: string; onChange: (v: string) => void; placeholder: string; keyboard?: "number-pad" }[]
-        ).map(({ label, value, onChange, placeholder, keyboard }) => (
+        {fields.map(({ label, value, onChange, placeholder, keyboard }) => (
           <View key={label} style={{ gap: 6, marginBottom: 16 }}>
             <Text style={{ fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground }}>{label}</Text>
             <TextInput
@@ -90,7 +92,7 @@ export default function AddressStep() {
               placeholder={placeholder}
               placeholderTextColor={colors.mutedForeground}
               value={value}
-              onChangeText={onChange}
+              onChangeText={(v) => { onChange(v); setErrorMsg(""); }}
               keyboardType={keyboard ?? "default"}
               autoCapitalize="words"
             />
@@ -99,6 +101,12 @@ export default function AddressStep() {
       </ScrollView>
 
       <View style={[s.footer, { paddingBottom: insets.bottom + (Platform.OS === "web" ? 24 : 16) }]}>
+        {!!errorMsg && (
+          <View style={[s.errorBox, { backgroundColor: "#FEE2E2", borderColor: "#FECACA" }]}>
+            <Feather name="alert-circle" size={14} color="#B91C1C" />
+            <Text style={s.errorText}>{errorMsg}</Text>
+          </View>
+        )}
         <Pressable style={({ pressed }) => [s.nextBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 }]} onPress={handleNext} disabled={isLoading}>
           {isLoading ? <ActivityIndicator color="#fff" /> : <><Text style={s.nextBtnText}>Continue</Text><Feather name="arrow-right" size={18} color="#fff" /></>}
         </Pressable>
@@ -120,6 +128,8 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     form: { paddingHorizontal: 24, paddingTop: 8 },
     input: { height: 52, borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 16, fontSize: 15, fontFamily: "Inter_400Regular" },
     footer: { paddingHorizontal: 24, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.background },
+    errorBox: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 },
+    errorText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#B91C1C" },
     nextBtn: { height: 54, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
     nextBtnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold" },
   });

@@ -6,7 +6,6 @@ import {
   Pressable,
   StyleSheet,
   ActivityIndicator,
-  Alert,
   ScrollView,
   Platform,
 } from "react-native";
@@ -54,6 +53,7 @@ export default function PersonalStep() {
   const [idNumber, setIdNumber] = useState(profile?.idNumber ?? "");
   const [phone, setPhone] = useState(profile?.phone ?? "");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
     if (profile) {
@@ -66,8 +66,9 @@ export default function PersonalStep() {
   }, [profile?.id]);
 
   const handleNext = async () => {
+    setErrorMsg("");
     if (!firstName || !lastName) {
-      Alert.alert("Required", "Please enter your first and last name.");
+      setErrorMsg("Please enter your first and last name.");
       return;
     }
     try {
@@ -78,7 +79,7 @@ export default function PersonalStep() {
       });
       router.push("/(onboarding)/address");
     } catch {
-      Alert.alert("Error", "Failed to save. Please try again.");
+      setErrorMsg("Failed to save. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -114,7 +115,7 @@ export default function PersonalStep() {
             placeholder="John"
             placeholderTextColor={colors.mutedForeground}
             value={firstName}
-            onChangeText={setFirstName}
+            onChangeText={(v) => { setFirstName(v); setErrorMsg(""); }}
             autoCapitalize="words"
           />
         </Field>
@@ -125,7 +126,7 @@ export default function PersonalStep() {
             placeholder="Doe"
             placeholderTextColor={colors.mutedForeground}
             value={lastName}
-            onChangeText={setLastName}
+            onChangeText={(v) => { setLastName(v); setErrorMsg(""); }}
             autoCapitalize="words"
           />
         </Field>
@@ -166,6 +167,12 @@ export default function PersonalStep() {
       </ScrollView>
 
       <View style={[s.footer, { paddingBottom: insets.bottom + (Platform.OS === "web" ? 24 : 16) }]}>
+        {!!errorMsg && (
+          <View style={[s.errorBox, { backgroundColor: "#FEE2E2", borderColor: "#FECACA" }]}>
+            <Feather name="alert-circle" size={14} color="#B91C1C" />
+            <Text style={s.errorText}>{errorMsg}</Text>
+          </View>
+        )}
         <Pressable
           style={({ pressed }) => [s.nextBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 }]}
           onPress={handleNext}
@@ -212,6 +219,17 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
       borderTopColor: colors.border,
       backgroundColor: colors.background,
     },
+    errorBox: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 8,
+      borderWidth: 1,
+      borderRadius: 10,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      marginBottom: 10,
+    },
+    errorText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#B91C1C" },
     nextBtn: {
       height: 54,
       borderRadius: 12,
