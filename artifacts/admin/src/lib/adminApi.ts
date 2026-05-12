@@ -59,5 +59,14 @@ export function useAdminApi() {
     [authFetch]
   );
 
-  return { getDriverNotes, patchDriverNotes, getSentNotifications, waitlistAllocation, unpublishEarnings };
+  const retryTelematics = useCallback(
+    (driverId: string) =>
+      authFetch(`/api/v1/admin/drivers/${driverId}/retry-telematics`, {
+        method: "POST",
+        body: JSON.stringify({}),
+      }),
+    [authFetch]
+  );
+
+  return { getDriverNotes, patchDriverNotes, getSentNotifications, waitlistAllocation, unpublishEarnings, retryTelematics };
 }

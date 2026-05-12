@@ -24,7 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, RefreshCcw, FileSignature, Clock, DollarSign } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, RefreshCcw, FileSignature, Clock, DollarSign, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { useAdminApi } from "@/lib/adminApi";
@@ -94,7 +94,8 @@ export default function DriverDetailPage() {
   const [suspendReason, setSuspendReason] = useState("");
   const [notes, setNotes] = useState<string>("");
   const [notesSaving, setNotesSaving] = useState(false);
-  const { getDriverNotes, patchDriverNotes } = useAdminApi();
+  const [retryingTelematics, setRetryingTelematics] = useState(false);
+  const { getDriverNotes, patchDriverNotes, retryTelematics } = useAdminApi();
 
   const loadNotes = useCallback(async () => {
     try { const res = await getDriverNotes(driverId); setNotes((res?.data as { notes?: string } | undefined)?.notes ?? ""); } catch { /* noop */ }
@@ -158,8 +159,17 @@ export default function DriverDetailPage() {
     });
   };
 
-  const handleRetryTelematics = () => {
-    toast({ title: "Telematics sync queued", description: "The driver will be re-synced on the next telematics cycle." });
+  const handleRetryTelematics = async () => {
+    setRetryingTelematics(true);
+    try {
+      await retryTelematics(driverId);
+      toast({ title: "Telematics sync queued", description: "Re-registration submitted. Status will update shortly." });
+      refresh();
+    } catch (err) {
+      toast({ title: "Telematics retry failed", description: (err as Error).message, variant: "destructive" });
+    } finally {
+      setRetryingTelematics(false);
+    }
   };
 
   const saveNotes = async () => {
@@ -268,8 +278,9 @@ export default function DriverDetailPage() {
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           {driver.telematicsSyncStatus !== "synced" && (
-            <Button variant="outline" size="sm" onClick={handleRetryTelematics} data-testid="btn-retry-telematics">
-              <RefreshCcw className="mr-2 h-4 w-4" /> Retry Telematics
+            <Button variant="outline" size="sm" onClick={handleRetryTelematics} disabled={retryingTelematics} data-testid="btn-retry-telematics">
+              {retryingTelematics ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-2 h-4 w-4" />}
+              {retryingTelematics ? "Retrying…" : "Retry Telematics"}
             </Button>
           )}
           {canApprove && (

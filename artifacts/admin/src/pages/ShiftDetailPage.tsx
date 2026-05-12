@@ -351,7 +351,7 @@ export default function ShiftDetailPage() {
                   <TableBody>
                     {grouped[tab].length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center py-8 text-gray-500">
+                        <TableCell colSpan={tab === "cancelled" ? 3 : 4} className="text-center py-8 text-gray-500">
                           No {tab} allocations.
                         </TableCell>
                       </TableRow>

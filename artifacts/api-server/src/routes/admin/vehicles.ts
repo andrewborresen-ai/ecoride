@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { db, vehiclesTable, vehicleAssignmentsTable, driverProfilesTable, vehicleAccessEventsTable } from "@workspace/db";
-import { eq, and, isNull } from "drizzle-orm";
+import { eq, and, isNull, gte, lte } from "drizzle-orm";
 import { requireAdmin } from "../../middlewares/auth";
 import type { AuthenticatedRequest } from "../../middlewares/auth";
 import { ok } from "../../lib/response";
@@ -196,6 +196,9 @@ router.get("/v1/admin/vehicle-access-events", requireAdmin, async (req: Authenti
   const conditions: ReturnType<typeof eq>[] = [];
   if (req.query.vehicleId) conditions.push(eq(vehicleAccessEventsTable.vehicleId, req.query.vehicleId as string));
   if (req.query.driverProfileId) conditions.push(eq(vehicleAccessEventsTable.driverProfileId, req.query.driverProfileId as string));
+  if (req.query.eventType) conditions.push(eq(vehicleAccessEventsTable.eventType, req.query.eventType as string));
+  if (req.query.from) conditions.push(gte(vehicleAccessEventsTable.requestedAt, new Date(req.query.from as string)));
+  if (req.query.to) conditions.push(lte(vehicleAccessEventsTable.requestedAt, new Date(req.query.to as string)));
 
   if (conditions.length > 0) query = query.where(and(...conditions));
 

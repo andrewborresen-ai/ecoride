@@ -197,6 +197,46 @@ router.post("/v1/admin/drivers/:driverId/suspend", requireAdmin, async (req: Aut
   res.json(ok(updated));
 });
 
+router.post("/v1/admin/drivers/:driverId/retry-telematics", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const raw = Array.isArray(req.params.driverId) ? req.params.driverId[0] : req.params.driverId;
+
+  const [profile] = await db.select().from(driverProfilesTable).where(eq(driverProfilesTable.id, raw));
+  if (!profile) {
+    res.status(404).json({ success: false, error: "Driver not found", data: null, meta: null });
+    return;
+  }
+
+  await db.update(driverProfilesTable).set({ telematicsSyncStatus: "pending", telematicsSyncError: null }).where(eq(driverProfilesTable.id, raw));
+
+  telematics.registerDriver({
+    driverProfileId: profile.id,
+    firstName: profile.firstName,
+    lastName: profile.lastName,
+    idNumber: profile.idNumber,
+    phone: profile.phone,
+  }).then(async (result) => {
+    if (result.success && result.telematicsDriverId) {
+      await db.update(driverProfilesTable).set({
+        telematicsDriverId: result.telematicsDriverId,
+        telematicsSyncStatus: "synced",
+        telematicsRegisteredAt: new Date(),
+        telematicsSyncError: null,
+      }).where(eq(driverProfilesTable.id, raw));
+      req.log.info({ driverProfileId: raw, telematicsDriverId: result.telematicsDriverId }, "Driver telematics retry succeeded");
+    } else {
+      await db.update(driverProfilesTable).set({
+        telematicsSyncStatus: "failed",
+        telematicsSyncError: result.error ?? "unknown",
+      }).where(eq(driverProfilesTable.id, raw));
+      req.log.warn({ driverProfileId: raw, error: result.error }, "Driver telematics retry failed");
+    }
+  });
+
+  const [updated] = await db.select().from(driverProfilesTable).where(eq(driverProfilesTable.id, raw));
+  req.log.info({ driverProfileId: raw }, "Driver telematics retry queued");
+  res.json(ok(updated));
+});
+
 router.get("/v1/admin/drivers/:driverId/documents", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.driverId) ? req.params.driverId[0] : req.params.driverId;
   const docs = await db
