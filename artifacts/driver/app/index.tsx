@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useAuth } from "@clerk/clerk-expo";
 import { useColors } from "@/hooks/useColors";
 import { useDriver } from "@/contexts/DriverContext";
+import type { ProfileStatus } from "@/types/api";
 
 export default function IndexScreen() {
   const colors = useColors();
@@ -22,20 +23,18 @@ export default function IndexScreen() {
     if (isLoading) return;
 
     if (!profile) {
-      router.replace("/(onboarding)/personal");
+      router.replace("/(onboarding)/index");
       return;
     }
 
-    const status: string = profile.status ?? "incomplete";
+    const status: ProfileStatus = profile.status ?? "incomplete";
 
     if (status === "approved") {
       router.replace("/(tabs)");
-    } else if (status === "pending") {
-      router.replace("/(onboarding)/submitted");
-    } else if (status === "suspended") {
+    } else if (status === "pending" || status === "rejected" || status === "suspended") {
       router.replace("/(onboarding)/submitted");
     } else {
-      router.replace("/(onboarding)/personal");
+      router.replace("/(onboarding)/index");
     }
   }, [isLoaded, isSignedIn, isLoading, profile]);
 

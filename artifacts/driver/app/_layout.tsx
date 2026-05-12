@@ -18,35 +18,35 @@ import { setBaseUrl, setAuthTokenGetter } from "@workspace/api-client-react";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { DriverProvider } from "@/contexts/DriverContext";
+import { useColors } from "@/hooks/useColors";
 
 SplashScreen.preventAutoHideAsync();
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 30_000,
-    },
+    queries: { retry: 1, staleTime: 30_000 },
   },
 });
 
 const tokenCache = {
-  async getToken(key: string) {
+  async getToken(key: string): Promise<string | null> {
     try {
       return await SecureStore.getItemAsync(key);
     } catch {
       return null;
     }
   },
-  async saveToken(key: string, value: string) {
+  async saveToken(key: string, value: string): Promise<void> {
     try {
-      return await SecureStore.setItemAsync(key, value);
-    } catch {}
+      await SecureStore.setItemAsync(key, value);
+    } catch {
+    }
   },
-  async clearToken(key: string) {
+  async clearToken(key: string): Promise<void> {
     try {
-      return await SecureStore.deleteItemAsync(key);
-    } catch {}
+      await SecureStore.deleteItemAsync(key);
+    } catch {
+    }
   },
 };
 
@@ -57,7 +57,7 @@ if (process.env.EXPO_PUBLIC_DOMAIN) {
 function ApiSync() {
   const { getToken } = useAuth();
   useEffect(() => {
-    setAuthTokenGetter(async () => {
+    setAuthTokenGetter(async (): Promise<string | null> => {
       try {
         return await getToken();
       } catch {
@@ -69,12 +69,29 @@ function ApiSync() {
 }
 
 function RootLayoutNav() {
+  const colors = useColors();
   return (
-    <Stack screenOptions={{ headerBackTitle: "Back" }}>
+    <Stack
+      screenOptions={{
+        headerBackTitle: "Back",
+        headerStyle: { backgroundColor: colors.background },
+        headerTintColor: colors.foreground,
+        headerTitleStyle: { fontFamily: "Inter_600SemiBold" },
+        contentStyle: { backgroundColor: colors.background },
+      }}
+    >
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="shift-detail"
+        options={{ headerShown: false, animation: "slide_from_right" }}
+      />
+      <Stack.Screen
+        name="earnings-detail"
+        options={{ headerShown: false, animation: "slide_from_right" }}
+      />
       <Stack.Screen name="+not-found" />
     </Stack>
   );
@@ -96,16 +113,12 @@ export default function RootLayout() {
 
   if (!fontsLoaded && !fontError) return null;
 
-  const publishableKey =
-    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
+  const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ?? "";
 
   return (
     <SafeAreaProvider>
       <ErrorBoundary>
-        <ClerkProvider
-          publishableKey={publishableKey}
-          tokenCache={tokenCache}
-        >
+        <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
           <QueryClientProvider client={queryClient}>
             <GestureHandlerRootView style={{ flex: 1 }}>
               <KeyboardProvider>

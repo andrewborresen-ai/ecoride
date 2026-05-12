@@ -1,15 +1,7 @@
 import React, { useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Alert,
+  View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator,
+  KeyboardAvoidingView, Platform, ScrollView, Alert,
 } from "react-native";
 import { useSignIn } from "@clerk/clerk-expo";
 import { Link, useRouter } from "expo-router";
@@ -34,16 +26,17 @@ export default function SignInScreen() {
     try {
       setIsLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const result = await signIn.create({ identifier: email, password });
+      const result = await signIn!.create({ identifier: email, password });
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
         router.replace("/");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      const clerkErr = err as { errors?: { longMessage?: string; message?: string }[] };
       const msg =
-        err?.errors?.[0]?.longMessage ??
-        err?.errors?.[0]?.message ??
+        clerkErr?.errors?.[0]?.longMessage ??
+        clerkErr?.errors?.[0]?.message ??
         "Sign in failed. Please check your credentials.";
       Alert.alert("Sign In Failed", msg);
     } finally {
@@ -71,15 +64,11 @@ export default function SignInScreen() {
             <Feather name="zap" size={28} color="#fff" />
           </View>
           <Text style={[s.brand, { color: colors.primary }]}>ECORIDE</Text>
-          <Text style={[s.tagline, { color: colors.mutedForeground }]}>
-            RIDE SMARTER
-          </Text>
+          <Text style={[s.tagline, { color: colors.mutedForeground }]}>RIDE SMARTER</Text>
         </View>
 
         <Text style={[s.title, { color: colors.foreground }]}>Welcome back</Text>
-        <Text style={[s.subtitle, { color: colors.mutedForeground }]}>
-          Sign in to your driver account
-        </Text>
+        <Text style={[s.subtitle, { color: colors.mutedForeground }]}>Sign in to your driver account</Text>
 
         <View style={s.form}>
           <View style={s.fieldGroup}>
@@ -99,7 +88,14 @@ export default function SignInScreen() {
           </View>
 
           <View style={s.fieldGroup}>
-            <Text style={[s.label, { color: colors.foreground }]}>Password</Text>
+            <View style={s.labelRow}>
+              <Text style={[s.label, { color: colors.foreground }]}>Password</Text>
+              <Link href="/(auth)/forgot-password" asChild>
+                <Pressable>
+                  <Text style={[s.forgotLink, { color: colors.primary }]}>Forgot password?</Text>
+                </Pressable>
+              </Link>
+            </View>
             <View style={[s.passwordRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
               <TextInput
                 style={[s.passwordInput, { color: colors.foreground }]}
@@ -114,11 +110,7 @@ export default function SignInScreen() {
                 testID="password-input"
               />
               <Pressable onPress={() => setShowPassword((v) => !v)} style={s.eyeBtn}>
-                <Feather
-                  name={showPassword ? "eye-off" : "eye"}
-                  size={18}
-                  color={colors.mutedForeground}
-                />
+                <Feather name={showPassword ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
               </Pressable>
             </View>
           </View>
@@ -141,14 +133,10 @@ export default function SignInScreen() {
         </View>
 
         <View style={s.footer}>
-          <Text style={[s.footerText, { color: colors.mutedForeground }]}>
-            Don't have an account?{" "}
-          </Text>
+          <Text style={[s.footerText, { color: colors.mutedForeground }]}>Don't have an account? </Text>
           <Link href="/(auth)/sign-up" asChild>
             <Pressable>
-              <Text style={[s.footerLink, { color: colors.primary }]}>
-                Register as Driver
-              </Text>
+              <Text style={[s.footerLink, { color: colors.primary }]}>Register as Driver</Text>
             </Pressable>
           </Link>
         </View>
@@ -162,80 +150,23 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     root: { flex: 1 },
     container: { paddingHorizontal: 24, flexGrow: 1 },
     header: { alignItems: "center", marginBottom: 40 },
-    logoMark: {
-      width: 64,
-      height: 64,
-      borderRadius: 16,
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 12,
-    },
-    brand: {
-      fontSize: 22,
-      fontFamily: "Inter_700Bold",
-      letterSpacing: 4,
-    },
-    tagline: {
-      fontSize: 11,
-      fontFamily: "Inter_500Medium",
-      letterSpacing: 3,
-      marginTop: 2,
-    },
-    title: {
-      fontSize: 28,
-      fontFamily: "Inter_700Bold",
-      marginBottom: 6,
-    },
-    subtitle: {
-      fontSize: 15,
-      fontFamily: "Inter_400Regular",
-      marginBottom: 32,
-    },
+    logoMark: { width: 64, height: 64, borderRadius: 16, alignItems: "center", justifyContent: "center", marginBottom: 12 },
+    brand: { fontSize: 22, fontFamily: "Inter_700Bold", letterSpacing: 4 },
+    tagline: { fontSize: 11, fontFamily: "Inter_500Medium", letterSpacing: 3, marginTop: 2 },
+    title: { fontSize: 28, fontFamily: "Inter_700Bold", marginBottom: 6 },
+    subtitle: { fontSize: 15, fontFamily: "Inter_400Regular", marginBottom: 32 },
     form: { gap: 16 },
     fieldGroup: { gap: 6 },
-    label: {
-      fontSize: 14,
-      fontFamily: "Inter_500Medium",
-    },
-    input: {
-      height: 52,
-      borderWidth: 1.5,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      fontSize: 15,
-      fontFamily: "Inter_400Regular",
-    },
-    passwordRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      height: 52,
-      borderWidth: 1.5,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-    },
-    passwordInput: {
-      flex: 1,
-      fontSize: 15,
-      fontFamily: "Inter_400Regular",
-    },
+    labelRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    label: { fontSize: 14, fontFamily: "Inter_500Medium" },
+    forgotLink: { fontSize: 13, fontFamily: "Inter_500Medium" },
+    input: { height: 52, borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 16, fontSize: 15, fontFamily: "Inter_400Regular" },
+    passwordRow: { flexDirection: "row", alignItems: "center", height: 52, borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 16 },
+    passwordInput: { flex: 1, fontSize: 15, fontFamily: "Inter_400Regular" },
     eyeBtn: { padding: 4 },
-    btn: {
-      height: 54,
-      borderRadius: 12,
-      alignItems: "center",
-      justifyContent: "center",
-      marginTop: 8,
-    },
-    btnText: {
-      color: "#fff",
-      fontSize: 16,
-      fontFamily: "Inter_600SemiBold",
-    },
-    footer: {
-      flexDirection: "row",
-      justifyContent: "center",
-      marginTop: 32,
-    },
+    btn: { height: 54, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: 8 },
+    btnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold" },
+    footer: { flexDirection: "row", justifyContent: "center", marginTop: 32 },
     footerText: { fontSize: 14, fontFamily: "Inter_400Regular" },
     footerLink: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   });

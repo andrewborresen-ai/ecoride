@@ -1,15 +1,7 @@
 import React, { useState } from "react";
 import {
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  StyleSheet,
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  Alert,
+  View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator,
+  KeyboardAvoidingView, Platform, ScrollView, Alert,
 } from "react-native";
 import { useSignUp } from "@clerk/clerk-expo";
 import { Link, useRouter } from "expo-router";
@@ -38,14 +30,15 @@ export default function SignUpScreen() {
     try {
       setIsLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      await signUp.create({ emailAddress: email, password });
-      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      await signUp!.create({ emailAddress: email, password });
+      await signUp!.prepareEmailAddressVerification({ strategy: "email_code" });
       setStep("verify");
-    } catch (err: any) {
+    } catch (err: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      const clerkErr = err as { errors?: { longMessage?: string; message?: string }[] };
       const msg =
-        err?.errors?.[0]?.longMessage ??
-        err?.errors?.[0]?.message ??
+        clerkErr?.errors?.[0]?.longMessage ??
+        clerkErr?.errors?.[0]?.message ??
         "Registration failed. Please try again.";
       Alert.alert("Registration Failed", msg);
     } finally {
@@ -58,18 +51,28 @@ export default function SignUpScreen() {
     try {
       setIsLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const result = await signUp.attemptEmailAddressVerification({ code });
+      const result = await signUp!.attemptEmailAddressVerification({ code });
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        await registerUser({ data: { email } }).catch(() => {});
+        try {
+          await registerUser({ data: { email } });
+        } catch (regErr: unknown) {
+          const e = regErr as { response?: { data?: { error?: string } }; message?: string };
+          const regMsg = e?.response?.data?.error ?? e?.message ?? "Profile setup failed";
+          Alert.alert(
+            "Account Setup Issue",
+            `Your account was created but driver profile setup failed: ${regMsg}. Please contact support if this persists.`
+          );
+        }
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         router.replace("/");
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      const clerkErr = err as { errors?: { longMessage?: string; message?: string }[] };
       const msg =
-        err?.errors?.[0]?.longMessage ??
-        err?.errors?.[0]?.message ??
+        clerkErr?.errors?.[0]?.longMessage ??
+        clerkErr?.errors?.[0]?.message ??
         "Verification failed. Check the code and try again.";
       Alert.alert("Verification Failed", msg);
     } finally {
@@ -97,9 +100,7 @@ export default function SignUpScreen() {
             <Feather name="zap" size={28} color="#fff" />
           </View>
           <Text style={[s.brand, { color: colors.primary }]}>ECORIDE</Text>
-          <Text style={[s.tagline, { color: colors.mutedForeground }]}>
-            RIDE SMARTER
-          </Text>
+          <Text style={[s.tagline, { color: colors.mutedForeground }]}>RIDE SMARTER</Text>
         </View>
 
         {step === "details" ? (
@@ -108,7 +109,6 @@ export default function SignUpScreen() {
             <Text style={[s.subtitle, { color: colors.mutedForeground }]}>
               Create your EcoRide driver account
             </Text>
-
             <View style={s.form}>
               <View style={s.fieldGroup}>
                 <Text style={[s.label, { color: colors.foreground }]}>Email Address</Text>
@@ -125,7 +125,6 @@ export default function SignUpScreen() {
                   testID="email-input"
                 />
               </View>
-
               <View style={s.fieldGroup}>
                 <Text style={[s.label, { color: colors.foreground }]}>Password</Text>
                 <View style={[s.passwordRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
@@ -142,29 +141,17 @@ export default function SignUpScreen() {
                     testID="password-input"
                   />
                   <Pressable onPress={() => setShowPassword((v) => !v)} style={s.eyeBtn}>
-                    <Feather
-                      name={showPassword ? "eye-off" : "eye"}
-                      size={18}
-                      color={colors.mutedForeground}
-                    />
+                    <Feather name={showPassword ? "eye-off" : "eye"} size={18} color={colors.mutedForeground} />
                   </Pressable>
                 </View>
               </View>
-
               <Pressable
-                style={({ pressed }) => [
-                  s.btn,
-                  { backgroundColor: colors.primary, opacity: pressed || isLoading ? 0.85 : 1 },
-                ]}
+                style={({ pressed }) => [s.btn, { backgroundColor: colors.primary, opacity: pressed || isLoading ? 0.85 : 1 }]}
                 onPress={handleSignUp}
                 disabled={isLoading || !email || !password}
                 testID="create-account-btn"
               >
-                {isLoading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={s.btnText}>Create Account</Text>
-                )}
+                {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Create Account</Text>}
               </Pressable>
             </View>
           </>
@@ -174,7 +161,6 @@ export default function SignUpScreen() {
             <Text style={[s.subtitle, { color: colors.mutedForeground }]}>
               We sent a 6-digit code to {email}
             </Text>
-
             <View style={s.form}>
               <View style={s.fieldGroup}>
                 <Text style={[s.label, { color: colors.foreground }]}>Verification Code</Text>
@@ -191,23 +177,14 @@ export default function SignUpScreen() {
                   testID="code-input"
                 />
               </View>
-
               <Pressable
-                style={({ pressed }) => [
-                  s.btn,
-                  { backgroundColor: colors.primary, opacity: pressed || isLoading ? 0.85 : 1 },
-                ]}
+                style={({ pressed }) => [s.btn, { backgroundColor: colors.primary, opacity: pressed || isLoading ? 0.85 : 1 }]}
                 onPress={handleVerify}
                 disabled={isLoading || code.length < 6}
                 testID="verify-btn"
               >
-                {isLoading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={s.btnText}>Verify & Continue</Text>
-                )}
+                {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={s.btnText}>Verify & Continue</Text>}
               </Pressable>
-
               <Pressable onPress={() => setStep("details")} style={s.backBtn}>
                 <Feather name="arrow-left" size={16} color={colors.primary} />
                 <Text style={[s.backText, { color: colors.primary }]}>Change email</Text>
@@ -217,9 +194,7 @@ export default function SignUpScreen() {
         )}
 
         <View style={s.footer}>
-          <Text style={[s.footerText, { color: colors.mutedForeground }]}>
-            Already have an account?{" "}
-          </Text>
+          <Text style={[s.footerText, { color: colors.mutedForeground }]}>Already have an account? </Text>
           <Link href="/(auth)/sign-in" asChild>
             <Pressable>
               <Text style={[s.footerLink, { color: colors.primary }]}>Sign In</Text>
@@ -236,65 +211,23 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     root: { flex: 1 },
     container: { paddingHorizontal: 24, flexGrow: 1 },
     header: { alignItems: "center", marginBottom: 40 },
-    logoMark: {
-      width: 64,
-      height: 64,
-      borderRadius: 16,
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 12,
-    },
+    logoMark: { width: 64, height: 64, borderRadius: 16, alignItems: "center", justifyContent: "center", marginBottom: 12 },
     brand: { fontSize: 22, fontFamily: "Inter_700Bold", letterSpacing: 4 },
-    tagline: {
-      fontSize: 11,
-      fontFamily: "Inter_500Medium",
-      letterSpacing: 3,
-      marginTop: 2,
-    },
+    tagline: { fontSize: 11, fontFamily: "Inter_500Medium", letterSpacing: 3, marginTop: 2 },
     title: { fontSize: 28, fontFamily: "Inter_700Bold", marginBottom: 6 },
     subtitle: { fontSize: 15, fontFamily: "Inter_400Regular", marginBottom: 32 },
     form: { gap: 16 },
     fieldGroup: { gap: 6 },
     label: { fontSize: 14, fontFamily: "Inter_500Medium" },
-    input: {
-      height: 52,
-      borderWidth: 1.5,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-      fontSize: 15,
-      fontFamily: "Inter_400Regular",
-    },
-    passwordRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      height: 52,
-      borderWidth: 1.5,
-      borderRadius: 12,
-      paddingHorizontal: 16,
-    },
+    input: { height: 52, borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 16, fontSize: 15, fontFamily: "Inter_400Regular" },
+    passwordRow: { flexDirection: "row", alignItems: "center", height: 52, borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 16 },
     passwordInput: { flex: 1, fontSize: 15, fontFamily: "Inter_400Regular" },
     eyeBtn: { padding: 4 },
-    btn: {
-      height: 54,
-      borderRadius: 12,
-      alignItems: "center",
-      justifyContent: "center",
-      marginTop: 8,
-    },
+    btn: { height: 54, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: 8 },
     btnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold" },
-    backBtn: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 6,
-      paddingVertical: 8,
-    },
+    backBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 8 },
     backText: { fontSize: 14, fontFamily: "Inter_500Medium" },
-    footer: {
-      flexDirection: "row",
-      justifyContent: "center",
-      marginTop: 32,
-    },
+    footer: { flexDirection: "row", justifyContent: "center", marginTop: 32 },
     footerText: { fontSize: 14, fontFamily: "Inter_400Regular" },
     footerLink: { fontSize: 14, fontFamily: "Inter_600SemiBold" },
   });
