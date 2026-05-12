@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
-import { useRegisterUser } from "@workspace/api-client-react";
+import { useRegisterUser, useUpdateMyProfile } from "@workspace/api-client-react";
 
 export default function SignUpScreen() {
   const colors = useColors();
@@ -17,6 +17,7 @@ export default function SignUpScreen() {
   const router = useRouter();
   const { signUp, setActive, isLoaded } = useSignUp();
   const { mutateAsync: registerUser } = useRegisterUser();
+  const { mutateAsync: updateProfile } = useUpdateMyProfile();
 
   const [step, setStep] = useState<"details" | "verify">("details");
   const [email, setEmail] = useState("");
@@ -25,8 +26,6 @@ export default function SignUpScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-
-  void router;
 
   const handleSignUp = async () => {
     if (!isLoaded || !email || !password) return;
@@ -59,6 +58,9 @@ export default function SignUpScreen() {
         await setActive({ session: result.createdSessionId });
         try {
           await registerUser({ data: { email } });
+          if (phone.trim()) {
+            await updateProfile({ data: { phone: phone.trim() } }).catch(() => {});
+          }
         } catch (regErr: unknown) {
           const e = regErr as { response?: { data?: { error?: string } }; message?: string };
           const regMsg = e?.response?.data?.error ?? e?.message ?? "Profile setup failed";

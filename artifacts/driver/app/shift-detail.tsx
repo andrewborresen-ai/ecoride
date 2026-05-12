@@ -45,7 +45,7 @@ export default function ShiftDetailScreen() {
 
   const { mutateAsync: requestUnlock } = useRequestVehicleUnlock();
   const [unlocking, setUnlocking] = useState(false);
-  const [lastUnlockResult, setLastUnlockResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [sessionUnlockResult, setSessionUnlockResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const shift = allocation?.shift;
   const vehicle = allocation?.vehicleAssignment?.vehicle;
@@ -71,12 +71,12 @@ export default function ShiftDetailScreen() {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
               await requestUnlock({ assignmentId: assignment.id });
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              setLastUnlockResult({ success: true, message: "Unlock signal sent successfully" });
+              setSessionUnlockResult({ success: true, message: "Unlock signal sent successfully" });
             } catch (err: unknown) {
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
               const e = err as { response?: { data?: { error?: string } }; message?: string };
               const msg = e?.response?.data?.error ?? e?.message ?? "Unlock request failed";
-              setLastUnlockResult({ success: false, message: msg });
+              setSessionUnlockResult({ success: false, message: msg });
             } finally {
               setUnlocking(false);
             }
@@ -172,12 +172,27 @@ export default function ShiftDetailScreen() {
               </View>
             </View>
 
-            {lastUnlockResult && (
-              <View style={[s.unlockResult, { backgroundColor: lastUnlockResult.success ? "rgba(255,255,255,0.2)" : "rgba(239,68,68,0.3)" }]}>
-                <Feather name={lastUnlockResult.success ? "check-circle" : "alert-circle"} size={14} color="#fff" />
-                <Text style={s.unlockResultText}>{lastUnlockResult.message}</Text>
+            {sessionUnlockResult ? (
+              <View style={[s.unlockResult, { backgroundColor: sessionUnlockResult.success ? "rgba(255,255,255,0.2)" : "rgba(239,68,68,0.3)" }]}>
+                <Feather name={sessionUnlockResult.success ? "check-circle" : "alert-circle"} size={14} color="#fff" />
+                <Text style={s.unlockResultText}>{sessionUnlockResult.message}</Text>
               </View>
-            )}
+            ) : assignment?.lastUnlockResult ? (
+              <View style={s.persistedUnlock}>
+                <View style={s.persistedUnlockRow}>
+                  <Feather name="clock" size={12} color="rgba(255,255,255,0.65)" />
+                  <Text style={s.persistedUnlockLabel}>Last unlock</Text>
+                </View>
+                <Text style={s.persistedUnlockResult}>{assignment.lastUnlockResult}</Text>
+                {assignment.lastUnlockAt ? (
+                  <Text style={s.persistedUnlockAt}>
+                    {new Date(assignment.lastUnlockAt).toLocaleString("en-ZA", {
+                      day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+                    })}
+                  </Text>
+                ) : null}
+              </View>
+            ) : null}
 
             {canUnlock && (
               <Pressable
@@ -262,6 +277,11 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     unlockBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, height: 46, borderRadius: 12, backgroundColor: "rgba(255,255,255,0.18)" },
     unlockBtnText: { color: "#fff", fontSize: 14, fontFamily: "Inter_700Bold" },
     unlockNote: { color: "rgba(255,255,255,0.65)", fontSize: 12, fontFamily: "Inter_400Regular", textAlign: "center" },
+    persistedUnlock: { gap: 2 },
+    persistedUnlockRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+    persistedUnlockLabel: { color: "rgba(255,255,255,0.65)", fontSize: 11, fontFamily: "Inter_400Regular" },
+    persistedUnlockResult: { color: "#fff", fontSize: 13, fontFamily: "Inter_500Medium" },
+    persistedUnlockAt: { color: "rgba(255,255,255,0.65)", fontSize: 11, fontFamily: "Inter_400Regular" },
     noVehicleCard: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14, borderWidth: 1, borderStyle: "dashed", padding: 16 },
     noVehicleText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular" },
     infoCard: { borderRadius: 14, borderWidth: 1, padding: 16, gap: 10 },

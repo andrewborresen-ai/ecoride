@@ -13,6 +13,7 @@ import {
   useGetActiveAgreement,
   useSignAgreement,
   useGetMyProfile,
+  useRequestDocumentUploadUrl,
 } from "@workspace/api-client-react";
 import { apiData } from "@/types/api";
 import type { Agreement, DriverProfile } from "@/types/api";
@@ -26,14 +27,8 @@ function formatDateTime(date: Date) {
   });
 }
 
-interface Point {
-  x: number;
-  y: number;
-}
-
-interface Stroke {
-  points: Point[];
-}
+interface Point { x: number; y: number; }
+interface Stroke { points: Point[]; }
 
 function strokeToPath(stroke: Stroke): string {
   if (stroke.points.length < 2) return "";
@@ -41,7 +36,16 @@ function strokeToPath(stroke: Stroke): string {
   return `M${first.x},${first.y} ` + rest.map((p) => `L${p.x},${p.y}`).join(" ");
 }
 
+function strokesToSvgString(strokes: Stroke[], width: number, height: number): string {
+  const paths = strokes.map((s) => strokeToPath(s)).filter(Boolean);
+  const pathsXml = paths.map(
+    (d) => `<path d="${d}" stroke="#1C2126" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`
+  ).join("\n");
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${pathsXml}</svg>`;
+}
+
 const PAD_HEIGHT = 120;
+const PAD_WIDTH = 320;
 
 function SignaturePad({
   strokes,
@@ -86,16 +90,11 @@ function SignaturePad({
 
   return (
     <View
-      style={[
-        sigStyles.pad,
-        { borderColor, backgroundColor, opacity: disabled ? 0.4 : 1 },
-      ]}
+      style={[sigStyles.pad, { borderColor, backgroundColor, opacity: disabled ? 0.4 : 1 }]}
       {...(disabled ? {} : panResponder.panHandlers)}
     >
       {allPaths.length === 0 && (
-        <Text style={[sigStyles.placeholder, { color: borderColor }]}>
-          Draw your signature here
-        </Text>
+        <Text style={[sigStyles.placeholder, { color: borderColor }]}>Draw your signature here</Text>
       )}
       <Svg style={StyleSheet.absoluteFill} width="100%" height={PAD_HEIGHT}>
         {allPaths.map((d, i) => (
@@ -107,19 +106,8 @@ function SignaturePad({
 }
 
 const sigStyles = StyleSheet.create({
-  pad: {
-    height: PAD_HEIGHT,
-    borderWidth: 1.5,
-    borderRadius: 12,
-    overflow: "hidden",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  placeholder: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    fontStyle: "italic",
-  },
+  pad: { height: PAD_HEIGHT, borderWidth: 1.5, borderRadius: 12, overflow: "hidden", justifyContent: "center", alignItems: "center" },
+  placeholder: { fontSize: 13, fontFamily: "Inter_400Regular", fontStyle: "italic" },
 });
 
 export default function AgreementStep() {
@@ -130,6 +118,7 @@ export default function AgreementStep() {
   const { data: agreementRes, isLoading: loadingAgreement } = useGetActiveAgreement();
   const { data: profileRes } = useGetMyProfile();
   const { mutateAsync: signAgreement } = useSignAgreement();
+  const { mutateAsync: requestUploadUrl } = useRequestDocumentUploadUrl();
 
   const agreement = apiData<Agreement>(agreementRes);
   const profile = apiData<DriverProfile>(profileRes);
@@ -144,10 +133,7 @@ export default function AgreementStep() {
 
   const hasDrawnSignature = strokes.length > 0;
 
-  const handleClearSignature = () => {
-    setStrokes([]);
-    Haptics.selectionAsync();
-  };
+  const handleClearSignature = () => { setStrokes([]); Haptics.selectionAsync(); };
 
   const handleSign = async () => {
     if (!legalName || !accepted) {
@@ -165,7 +151,28 @@ export default function AgreementStep() {
     try {
       setIsLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      await signAgreement({ data: { legalName } });
+
+      let signatureObjectPath: string | undefined;
+      try {
+        const svgString = strokesToSvgString(strokes, PAD_WIDTH, PAD_HEIGHT);
+        const svgBlob = new Blob([svgString], { type: "image/svg+xml" });
+        const svgSize = svgBlob.size;
+        const urlRes = await requestUploadUrl({
+          data: { name: "signature.svg", size: svgSize, contentType: "image/svg+xml" },
+        });
+        const uploadData = apiData<{ uploadURL: string; objectPath: string }>(urlRes);
+        if (uploadData?.uploadURL && uploadData?.objectPath) {
+          await fetch(uploadData.uploadURL, {
+            method: "PUT",
+            body: svgBlob,
+            headers: { "Content-Type": "image/svg+xml" },
+          });
+          signatureObjectPath = uploadData.objectPath;
+        }
+      } catch {
+      }
+
+      await signAgreement({ data: { legalName, signatureObjectPath } });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.push("/(onboarding)/home");
     } catch (err: unknown) {
@@ -206,13 +213,11 @@ export default function AgreementStep() {
             showsVerticalScrollIndicator
             onMomentumScrollEnd={({ nativeEvent }) => {
               const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-              const isBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 40;
-              if (isBottom) setScrolledToBottom(true);
+              if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 40) setScrolledToBottom(true);
             }}
             onScrollEndDrag={({ nativeEvent }) => {
               const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
-              const isBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 40;
-              if (isBottom) setScrolledToBottom(true);
+              if (layoutMeasurement.height + contentOffset.y >= contentSize.height - 40) setScrolledToBottom(true);
             }}
           >
             <View style={[s.agreementBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -223,9 +228,7 @@ export default function AgreementStep() {
                   ? ` · Effective ${new Date(agreement.effectiveDate).toLocaleDateString("en-ZA")}`
                   : ""}
               </Text>
-              <Text style={[s.agreementContent, { color: colors.foreground }]}>
-                {agreement.content}
-              </Text>
+              <Text style={[s.agreementContent, { color: colors.foreground }]}>{agreement.content}</Text>
             </View>
 
             {!scrolledToBottom && (
@@ -243,14 +246,7 @@ export default function AgreementStep() {
                   Your Legal Full Name
                 </Text>
                 <TextInput
-                  style={[
-                    s.input,
-                    {
-                      borderColor: scrolledToBottom ? colors.border : colors.input,
-                      backgroundColor: colors.card,
-                      color: colors.foreground,
-                    },
-                  ]}
+                  style={[s.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.foreground }]}
                   placeholder="As it appears on your SA ID"
                   placeholderTextColor={colors.mutedForeground}
                   value={legalName}
@@ -283,7 +279,7 @@ export default function AgreementStep() {
               </View>
 
               <Pressable
-                style={[s.checkRow]}
+                style={s.checkRow}
                 onPress={() => { if (scrolledToBottom) { setAccepted((v) => !v); Haptics.selectionAsync(); } }}
                 disabled={!scrolledToBottom}
               >
@@ -300,9 +296,7 @@ export default function AgreementStep() {
                   <Feather name="edit-3" size={14} color={colors.primary} />
                   <Text style={[s.sigPreviewText, { color: colors.foreground }]}>
                     Signed electronically as{" "}
-                    <Text style={{ fontFamily: "Inter_700Bold", color: colors.primary }}>
-                      {legalName.trim()}
-                    </Text>{"\n"}
+                    <Text style={{ fontFamily: "Inter_700Bold", color: colors.primary }}>{legalName.trim()}</Text>{"\n"}
                     <Text style={{ fontFamily: "Inter_400Regular", color: colors.mutedForeground, fontSize: 11 }}>
                       {formatDateTime(signatureTimestamp)} · Version {agreement.version}
                     </Text>
@@ -314,10 +308,7 @@ export default function AgreementStep() {
 
           <View style={[s.footer, { paddingBottom: insets.bottom + 16 }]}>
             <Pressable
-              style={({ pressed }) => [
-                s.signBtn,
-                { backgroundColor: canSign ? colors.primary : colors.muted, opacity: pressed ? 0.85 : 1 },
-              ]}
+              style={({ pressed }) => [s.signBtn, { backgroundColor: canSign ? colors.primary : colors.muted, opacity: pressed ? 0.85 : 1 }]}
               onPress={handleSign}
               disabled={isLoading || !canSign}
               testID="sign-btn"

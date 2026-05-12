@@ -81,6 +81,8 @@ export interface AllocationVehicle {
   assignment: {
     id: string;
     status: string;
+    lastUnlockAt: string | null;
+    lastUnlockResult: string | null;
   };
   vehicle: VehicleSummary;
 }

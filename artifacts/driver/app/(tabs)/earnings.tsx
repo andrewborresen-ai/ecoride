@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   View, Text, Pressable, FlatList, StyleSheet, ActivityIndicator,
-  RefreshControl, Platform,
+  RefreshControl, Platform, TextInput,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,12 +11,13 @@ import { useGetMyEarnings, getGetMyEarningsQueryKey } from "@workspace/api-clien
 import { apiData } from "@/types/api";
 import type { Earning } from "@/types/api";
 
-type FilterType = "week" | "month" | "all";
+type FilterType = "week" | "month" | "all" | "custom";
 
-const FILTERS: { key: FilterType; label: string }[] = [
+const QUICK_FILTERS: { key: FilterType; label: string }[] = [
   { key: "week", label: "This Week" },
   { key: "month", label: "This Month" },
   { key: "all", label: "All Time" },
+  { key: "custom", label: "Custom" },
 ];
 
 function formatZAR(cents: number) {
@@ -31,9 +32,9 @@ function formatPeriod(from: string, to: string) {
   };
 }
 
-function getDateParams(filter: FilterType): { from?: string; to?: string } {
+function getPresetParams(filter: FilterType): { from?: string; to?: string } {
   const now = new Date();
-  if (filter === "all") return {};
+  if (filter === "all" || filter === "custom") return {};
   if (filter === "week") {
     const from = new Date(now);
     from.setDate(from.getDate() - 7);
@@ -49,13 +50,30 @@ function getDateParams(filter: FilterType): { from?: string; to?: string } {
   return {};
 }
 
+function isValidDate(str: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(str)) return false;
+  const d = new Date(str);
+  return !isNaN(d.getTime());
+}
+
 export default function EarningsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [filter, setFilter] = useState<FilterType>("month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
 
-  const dateParams = getDateParams(filter);
+  const dateParams = (() => {
+    if (filter === "custom") {
+      return {
+        from: isValidDate(customFrom) ? new Date(customFrom).toISOString() : undefined,
+        to: isValidDate(customTo) ? new Date(customTo).toISOString() : undefined,
+      };
+    }
+    return getPresetParams(filter);
+  })();
+
   const { data: earningsRes, isLoading, refetch } = useGetMyEarnings(dateParams, {
     query: { queryKey: getGetMyEarningsQueryKey(dateParams) },
   });
@@ -118,12 +136,14 @@ export default function EarningsScreen() {
     );
   };
 
+  const filterLabel = QUICK_FILTERS.find((f) => f.key === filter)?.label ?? "Earnings";
+
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
       <View style={[s.screenHeader, { paddingTop: topPad }]}>
         <Text style={[s.screenTitle, { color: colors.foreground }]}>Earnings</Text>
         <View style={s.filterRow}>
-          {FILTERS.map((f) => (
+          {QUICK_FILTERS.map((f) => (
             <Pressable
               key={f.key}
               style={[
@@ -141,6 +161,50 @@ export default function EarningsScreen() {
             </Pressable>
           ))}
         </View>
+
+        {filter === "custom" && (
+          <View style={s.customDateRow}>
+            <View style={s.customDateField}>
+              <Text style={[s.customDateLabel, { color: colors.mutedForeground }]}>From</Text>
+              <TextInput
+                style={[
+                  s.customDateInput,
+                  {
+                    borderColor: customFrom && !isValidDate(customFrom) ? colors.destructive : colors.border,
+                    backgroundColor: colors.card,
+                    color: colors.foreground,
+                  },
+                ]}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={colors.mutedForeground}
+                value={customFrom}
+                onChangeText={setCustomFrom}
+                keyboardType="numbers-and-punctuation"
+                maxLength={10}
+              />
+            </View>
+            <Feather name="arrow-right" size={14} color={colors.mutedForeground} style={{ marginTop: 20 }} />
+            <View style={s.customDateField}>
+              <Text style={[s.customDateLabel, { color: colors.mutedForeground }]}>To</Text>
+              <TextInput
+                style={[
+                  s.customDateInput,
+                  {
+                    borderColor: customTo && !isValidDate(customTo) ? colors.destructive : colors.border,
+                    backgroundColor: colors.card,
+                    color: colors.foreground,
+                  },
+                ]}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={colors.mutedForeground}
+                value={customTo}
+                onChangeText={setCustomTo}
+                keyboardType="numbers-and-punctuation"
+                maxLength={10}
+              />
+            </View>
+          </View>
+        )}
       </View>
 
       {isLoading ? (
@@ -156,9 +220,7 @@ export default function EarningsScreen() {
           ListHeaderComponent={
             publishedEarnings.length > 0 ? (
               <View style={[s.summaryCard, { backgroundColor: colors.primary }]}>
-                <Text style={s.summaryLabel}>
-                  {FILTERS.find((f) => f.key === filter)?.label} · Net
-                </Text>
+                <Text style={s.summaryLabel}>{filterLabel} · Net</Text>
                 <Text style={s.summaryNet}>{formatZAR(totalNet)}</Text>
                 <View style={s.summaryRow}>
                   <View style={s.summaryItem}>
@@ -188,6 +250,8 @@ export default function EarningsScreen() {
               <Text style={[s.emptyBody, { color: colors.mutedForeground }]}>
                 {filter === "all"
                   ? "Your earnings will appear here after your first shift"
+                  : filter === "custom"
+                  ? "Enter a date range above to filter your earnings"
                   : "Try selecting a wider date range"}
               </Text>
             </View>
@@ -203,9 +267,13 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     root: { flex: 1 },
     screenHeader: { paddingHorizontal: 20, paddingBottom: 8 },
     screenTitle: { fontSize: 28, fontFamily: "Inter_700Bold", marginBottom: 10 },
-    filterRow: { flexDirection: "row", gap: 8 },
-    filterChip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
+    filterRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
+    filterChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },
     filterText: { fontSize: 13, fontFamily: "Inter_600SemiBold" },
+    customDateRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: 10 },
+    customDateField: { flex: 1, gap: 4 },
+    customDateLabel: { fontSize: 11, fontFamily: "Inter_500Medium" },
+    customDateInput: { height: 42, borderWidth: 1.5, borderRadius: 10, paddingHorizontal: 12, fontSize: 14, fontFamily: "Inter_400Regular" },
     list: { paddingHorizontal: 20, paddingTop: 10 },
     summaryCard: { borderRadius: 20, padding: 24, marginBottom: 14 },
     summaryLabel: { color: "rgba(255,255,255,0.75)", fontSize: 13, fontFamily: "Inter_500Medium", marginBottom: 4 },

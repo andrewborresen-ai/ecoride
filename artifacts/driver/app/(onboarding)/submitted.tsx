@@ -46,8 +46,6 @@ export default function AccountStatusScreen() {
   const s = makeStyles(colors);
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 24);
 
-  void isLoading;
-
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
       <ScrollView

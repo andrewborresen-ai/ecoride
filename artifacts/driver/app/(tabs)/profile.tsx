@@ -69,8 +69,6 @@ export default function ProfileScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [reuploadingDoc, setReuploadingDoc] = useState<string | null>(null);
 
-  void router;
-
   useEffect(() => {
     if (profile) setPhone(profile.phone ?? "");
   }, [profile?.id]);
