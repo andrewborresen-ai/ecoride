@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100" fill="none">
+  <rect width="400" height="100" fill="#1C2126"/>
+  <path d="M40 50 C40 33.4 53.4 20 70 20 C86.6 20 100 33.4 100 50 C100 66.6 86.6 80 70 80 C53.4 80 40 66.6 40 50 Z" fill="#3DB324"/>
+  <path d="M60 50 L80 50 M70 40 L70 60" stroke="#1C2126" stroke-width="4" stroke-linecap="round"/>
+  <text x="120" y="60" font-family="system-ui, -apple-system, sans-serif" font-weight="bold" font-size="32" fill="#3DB324">EcoRide</text>
+  <text x="250" y="60" font-family="system-ui, -apple-system, sans-serif" font-weight="300" font-size="24" fill="#ffffff">Admin</text>
+</svg>
