@@ -51,7 +51,41 @@ router.get("/v1/admin/drivers", requireAdmin, async (req: AuthenticatedRequest, 
   }
 
   const profiles = await query;
-  res.json(ok(profiles, { total: profiles.length }));
+
+  // Enrich with computed documentsStatus from driver_documents table
+  let enriched: (typeof profiles[number] & { documentsStatus: string })[] = [];
+  if (profiles.length > 0) {
+    const profileIds = profiles.map((p) => p.id);
+    const docRows = await db
+      .select({ driverProfileId: driverDocumentsTable.driverProfileId, status: driverDocumentsTable.status })
+      .from(driverDocumentsTable)
+      .where(and(inArray(driverDocumentsTable.driverProfileId, profileIds), isNull(driverDocumentsTable.deletedAt)));
+
+    const grouped: Record<string, string[]> = {};
+    for (const row of docRows) {
+      if (!grouped[row.driverProfileId]) grouped[row.driverProfileId] = [];
+      grouped[row.driverProfileId].push(row.status ?? "");
+    }
+
+    const computeStatus = (statuses: string[]): string => {
+      if (statuses.length === 0) return "incomplete";
+      if (statuses.some((s) => s === "rejected")) return "rejected";
+      if (statuses.some((s) => s === "pending_review")) return "pending_review";
+      if (statuses.every((s) => s === "verified")) return "verified";
+      return "complete";
+    };
+
+    enriched = profiles.map((p) => ({ ...p, documentsStatus: computeStatus(grouped[p.id] ?? []) }));
+  } else {
+    enriched = [];
+  }
+
+  // Apply server-side docStatus filter now that we have the computed field
+  const filtered = req.query.docStatus
+    ? enriched.filter((p) => p.documentsStatus === (req.query.docStatus as string))
+    : enriched;
+
+  res.json(ok(filtered, { total: filtered.length }));
 });
 
 router.get("/v1/admin/drivers/:driverId", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
