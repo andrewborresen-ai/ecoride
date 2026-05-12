@@ -12,7 +12,8 @@ import {
   Bell,
   Settings,
   LogOut,
-  Menu
+  Menu,
+  ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -34,45 +35,65 @@ export function Sidebar() {
   const { signOut } = useClerk();
 
   return (
-    <div className="flex h-full w-64 flex-col border-r bg-[#1C2126] text-white">
-      <div className="flex h-16 items-center px-6 border-b border-gray-800">
-        <Link href="/dashboard" className="flex items-center gap-2 font-bold text-xl text-[#3DB324]">
-          <img src={`${import.meta.env.BASE_URL}logo.svg`} alt="EcoRide" className="h-8 w-8" />
-          <span>EcoRide</span>
+    <div className="flex h-full w-64 flex-col bg-[#1C2126] text-white">
+      {/* Brand */}
+      <div className="flex h-[68px] items-center gap-3 px-5 border-b border-white/10">
+        <Link href="/dashboard" className="flex items-center gap-3 min-w-0">
+          <div className="flex-shrink-0 w-9 h-9 rounded-[10px] overflow-hidden">
+            <img
+              src={`${import.meta.env.BASE_URL}logo.svg`}
+              alt="EcoRide"
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[15px] font-bold text-white leading-tight">EcoRide</div>
+            <div className="text-[11px] font-semibold text-[#3DB324] leading-tight tracking-wide uppercase">
+              Admin
+            </div>
+          </div>
         </Link>
       </div>
-      <div className="flex-1 overflow-y-auto py-4">
-        <nav className="space-y-1 px-3">
+
+      {/* Nav */}
+      <div className="flex-1 overflow-y-auto py-3 px-3">
+        <nav className="space-y-0.5">
           {NAV_ITEMS.map((item) => {
             const isActive = location.startsWith(item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-medium transition-all ${
                   isActive
-                    ? "bg-[#3DB324] text-white"
-                    : "text-gray-400 hover:bg-gray-800 hover:text-white"
+                    ? "bg-[#3DB324] text-white shadow-sm"
+                    : "text-white/60 hover:bg-white/8 hover:text-white"
                 }`}
                 data-testid={`nav-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
               >
-                <item.icon className="h-5 w-5" />
-                {item.label}
+                <item.icon
+                  className={`h-[18px] w-[18px] flex-shrink-0 ${
+                    isActive ? "text-white" : "text-white/50 group-hover:text-white"
+                  }`}
+                />
+                <span className="flex-1">{item.label}</span>
+                {isActive && <ChevronRight className="h-3.5 w-3.5 text-white/70" />}
               </Link>
             );
           })}
         </nav>
       </div>
-      <div className="p-4 border-t border-gray-800">
-        <Button
-          variant="ghost"
-          className="w-full justify-start text-gray-400 hover:bg-gray-800 hover:text-white"
+
+      {/* Footer */}
+      <div className="p-3 border-t border-white/10">
+        <button
+          className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-[13.5px] font-medium text-white/50 hover:bg-white/8 hover:text-white transition-all"
           onClick={() => signOut()}
           data-testid="nav-signout"
         >
-          <LogOut className="mr-3 h-5 w-5" />
+          <LogOut className="h-[18px] w-[18px] flex-shrink-0" />
           Sign Out
-        </Button>
+        </button>
       </div>
     </div>
   );
@@ -80,40 +101,65 @@ export function Sidebar() {
 
 export function Layout({ children }: { children: ReactNode }) {
   const { user } = useUser();
+  const initials =
+    user?.firstName?.charAt(0) ||
+    user?.primaryEmailAddress?.emailAddress?.charAt(0)?.toUpperCase() ||
+    "A";
+  const email = user?.primaryEmailAddress?.emailAddress;
 
   return (
-    <div className="flex min-h-[100dvh] w-full bg-gray-50">
-      <aside className="hidden lg:block">
-        <Sidebar />
+    <div className="flex min-h-[100dvh] w-full bg-background">
+      {/* Desktop sidebar */}
+      <aside className="hidden lg:block flex-shrink-0">
+        <div className="sticky top-0 h-screen">
+          <Sidebar />
+        </div>
       </aside>
 
-      <div className="flex flex-1 flex-col">
-        <header className="flex h-16 items-center justify-between border-b bg-white px-4 lg:px-8">
-          <div className="flex items-center gap-4 lg:hidden">
+      <div className="flex flex-1 flex-col min-w-0">
+        {/* Topbar */}
+        <header className="sticky top-0 z-30 flex h-[68px] items-center justify-between border-b border-border bg-card px-4 lg:px-6 shadow-none">
+          {/* Mobile: hamburger + wordmark */}
+          <div className="flex items-center gap-3 lg:hidden">
             <Sheet>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="lg:hidden">
-                  <Menu className="h-6 w-6" />
+                <Button variant="ghost" size="icon" className="h-9 w-9 text-foreground">
+                  <Menu className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-64 p-0 border-r-0">
                 <Sidebar />
               </SheetContent>
             </Sheet>
-            <span className="font-bold text-[#1C2126]">EcoRide Admin</span>
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg overflow-hidden">
+                <img
+                  src={`${import.meta.env.BASE_URL}logo.svg`}
+                  alt="EcoRide"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+              <span className="font-bold text-[15px] text-foreground">EcoRide</span>
+            </div>
           </div>
 
-          <div className="ml-auto flex items-center gap-4">
-            <span className="text-sm font-medium text-gray-700">
-              {user?.primaryEmailAddress?.emailAddress}
-            </span>
-            <div className="h-8 w-8 rounded-full bg-[#3DB324] flex items-center justify-center text-white font-bold text-sm">
-              {user?.firstName?.charAt(0) || user?.primaryEmailAddress?.emailAddress?.charAt(0)?.toUpperCase()}
+          {/* Desktop: empty left to keep header aligned with content */}
+          <div className="hidden lg:block" />
+
+          {/* Right side: user info */}
+          <div className="ml-auto flex items-center gap-3">
+            {email && (
+              <span className="hidden sm:block text-sm text-muted-foreground font-medium truncate max-w-[200px]">
+                {email}
+              </span>
+            )}
+            <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center text-white font-bold text-sm shadow-sm select-none">
+              {initials}
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-4 lg:p-8">
+        <main className="flex-1 overflow-y-auto p-4 lg:p-6 xl:p-8">
           {children}
         </main>
       </div>
