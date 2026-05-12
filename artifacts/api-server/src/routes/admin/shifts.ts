@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
-import { db, shiftsTable, shiftAllocationsTable, notificationsTable } from "@workspace/db";
+import { db, shiftsTable, shiftAllocationsTable, vehicleAssignmentsTable, notificationsTable } from "@workspace/db";
 import { eq, and, gte, lte } from "drizzle-orm";
 import { requireAdmin } from "../../middlewares/auth";
 import type { AuthenticatedRequest } from "../../middlewares/auth";
@@ -100,8 +100,31 @@ router.patch("/v1/admin/shifts/:shiftId", requireAdmin, async (req: Authenticate
 
 router.get("/v1/admin/shifts/:shiftId/allocations", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const raw = Array.isArray(req.params.shiftId) ? req.params.shiftId[0] : req.params.shiftId;
-  const allocations = await db.select().from(shiftAllocationsTable).where(eq(shiftAllocationsTable.shiftId, raw));
-  res.json(ok(allocations, { total: allocations.length }));
+  const rows = await db
+    .select({
+      id: shiftAllocationsTable.id,
+      shiftId: shiftAllocationsTable.shiftId,
+      driverProfileId: shiftAllocationsTable.driverProfileId,
+      userId: shiftAllocationsTable.userId,
+      status: shiftAllocationsTable.status,
+      requestedAt: shiftAllocationsTable.requestedAt,
+      confirmedAt: shiftAllocationsTable.confirmedAt,
+      confirmedBy: shiftAllocationsTable.confirmedBy,
+      declinedAt: shiftAllocationsTable.declinedAt,
+      declinedBy: shiftAllocationsTable.declinedBy,
+      declineReason: shiftAllocationsTable.declineReason,
+      cancelledAt: shiftAllocationsTable.cancelledAt,
+      createdAt: shiftAllocationsTable.createdAt,
+      updatedAt: shiftAllocationsTable.updatedAt,
+      vehicleAssignmentId: vehicleAssignmentsTable.id,
+      assignedVehicleId: vehicleAssignmentsTable.vehicleId,
+      telematicsSyncStatus: vehicleAssignmentsTable.telematicsSyncStatus,
+      assignmentStatus: vehicleAssignmentsTable.status,
+    })
+    .from(shiftAllocationsTable)
+    .leftJoin(vehicleAssignmentsTable, eq(vehicleAssignmentsTable.shiftAllocationId, shiftAllocationsTable.id))
+    .where(eq(shiftAllocationsTable.shiftId, raw));
+  res.json(ok(rows, { total: rows.length }));
 });
 
 router.post(

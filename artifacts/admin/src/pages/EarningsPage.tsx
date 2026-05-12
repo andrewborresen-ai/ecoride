@@ -89,9 +89,8 @@ function buildEarningsInput(row: Record<string, string>, mapping: Record<Earning
   const penalties = toInt("penaltiesCents") ?? 0;
   const net = toInt("netAmountCents") ?? gross - deductions - penalties + incentives;
   try {
-    const data: EarningsInput = {
+    const data = {
       driverProfileId,
-      userId: driverProfileId,
       periodStart: new Date(periodStart).toISOString(),
       periodEnd: new Date(periodEnd).toISOString(),
       grossAmountCents: gross,
@@ -101,7 +100,7 @@ function buildEarningsInput(row: Record<string, string>, mapping: Record<Earning
       netAmountCents: net,
       tripCount: toInt("tripCount"),
       notes: get("notes") || undefined,
-    };
+    } as EarningsInput;
     return { data, error: null };
   } catch {
     return { data: null, error: "Invalid date format" };
@@ -344,7 +343,7 @@ export default function EarningsPage() {
     const deductions = Number(newEarning.deductionsCents);
     const incentives = Number(newEarning.incentivesCents);
     const penalties = Number(newEarning.penaltiesCents);
-    const data: EarningsInput = { driverProfileId: newEarning.driverProfileId, userId: newEarning.driverProfileId, periodStart: new Date(newEarning.periodStart).toISOString(), periodEnd: new Date(newEarning.periodEnd).toISOString(), grossAmountCents: gross, deductionsCents: deductions, incentivesCents: incentives, penaltiesCents: penalties, netAmountCents: gross - deductions - penalties + incentives };
+    const data = { driverProfileId: newEarning.driverProfileId, periodStart: new Date(newEarning.periodStart).toISOString(), periodEnd: new Date(newEarning.periodEnd).toISOString(), grossAmountCents: gross, deductionsCents: deductions, incentivesCents: incentives, penaltiesCents: penalties, netAmountCents: gross - deductions - penalties + incentives } as EarningsInput;
     createEarnings.mutate({ data }, {
       onSuccess: () => { toast({ title: "Earnings record created" }); setCreateOpen(false); invalidate(); },
       onError: (err) => toast({ title: "Error creating earnings", description: err.message, variant: "destructive" }),

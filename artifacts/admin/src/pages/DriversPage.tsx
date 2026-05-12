@@ -38,12 +38,14 @@ export default function DriversPage() {
   const [agreementFilter, setAgreementFilter] = useState<string>("all");
   const [telematicsFilter, setTelematicsFilter] = useState<string>("all");
   const [docStatusFilter, setDocStatusFilter] = useState<string>("all");
+  const [userStatusFilter, setUserStatusFilter] = useState<string>("all");
 
   const { data, isLoading } = useAdminListDrivers({
     search: search || undefined,
     status: status !== "all" ? status : undefined,
     limit: 500,
-  });
+    ...(userStatusFilter !== "all" ? { userStatus: userStatusFilter } : {}),
+  } as Parameters<typeof useAdminListDrivers>[0]);
 
   const raw = (data?.data as DriverItem[] | undefined) ?? [];
 
@@ -127,6 +129,17 @@ export default function DriversPage() {
             <SelectItem value="pending_review">Pending Review</SelectItem>
             <SelectItem value="verified">Verified</SelectItem>
             <SelectItem value="rejected">Rejected</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={userStatusFilter} onValueChange={setUserStatusFilter}>
+          <SelectTrigger className="w-[170px]">
+            <SelectValue placeholder="User Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">User Status: All</SelectItem>
+            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="inactive">Inactive</SelectItem>
+            <SelectItem value="suspended">Suspended</SelectItem>
           </SelectContent>
         </Select>
       </div>

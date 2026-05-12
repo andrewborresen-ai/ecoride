@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { db, driverProfilesTable, usersTable, driverDocumentsTable, notificationsTable } from "@workspace/db";
-import { eq, and, isNull, or, ilike, sql } from "drizzle-orm";
+import { eq, and, isNull, or, ilike, sql, inArray } from "drizzle-orm";
 import { requireAdmin } from "../../middlewares/auth";
 import type { AuthenticatedRequest } from "../../middlewares/auth";
 import { ok } from "../../lib/response";
@@ -41,6 +41,11 @@ router.get("/v1/admin/drivers", requireAdmin, async (req: AuthenticatedRequest, 
       )!
     );
   }
+  if (req.query.userStatus) {
+    const matchingUsers = await db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.status, req.query.userStatus as string));
+    conditions.push(inArray(driverProfilesTable.userId, matchingUsers.map((u) => u.id)));
+  }
+
   if (conditions.length > 0) {
     query = query.where(conditions.length === 1 ? conditions[0] : and(...conditions));
   }
