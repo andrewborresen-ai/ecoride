@@ -155,6 +155,30 @@ router.post("/v1/admin/earnings/:earningsId/publish", requireAdmin, async (req: 
   res.json(ok(updated));
 });
 
+router.post("/v1/admin/earnings/:earningsId/unpublish", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const raw = Array.isArray(req.params.earningsId) ? req.params.earningsId[0] : req.params.earningsId;
+
+  const [existing] = await db.select().from(earningsTable).where(eq(earningsTable.id, raw));
+  if (!existing) {
+    res.status(404).json({ success: false, error: "Earnings not found", data: null, meta: null });
+    return;
+  }
+
+  if (existing.status !== "published") {
+    res.status(400).json({ success: false, error: `Cannot recall earnings with status: ${existing.status}`, data: null, meta: null });
+    return;
+  }
+
+  const [updated] = await db
+    .update(earningsTable)
+    .set({ status: "draft", publishedAt: null, publishedBy: null })
+    .where(eq(earningsTable.id, raw))
+    .returning();
+
+  req.log.info({ earningsId: raw }, "Earnings recalled to draft");
+  res.json(ok(updated));
+});
+
 router.post("/v1/admin/earnings/import-csv", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
   const { rows } = req.body as { rows?: unknown[] };
 

@@ -13,6 +13,7 @@ import {
 } from "@workspace/api-client-react";
 import type { DeclineAllocationInput, VehicleAssignmentInput } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAdminApi } from "@/lib/adminApi";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,7 @@ export default function ShiftDetailPage() {
   const { data: vehiclesRes } = useAdminListVehicles({ status: "active" });
   const vehicles = (vehiclesRes?.data as ListData<VehicleItem> | undefined)?.items ?? [];
 
+  const { waitlistAllocation } = useAdminApi();
   const confirmAlloc = useAdminConfirmAllocation();
   const declineAlloc = useAdminDeclineAllocation();
   const assignVehicle = useAdminCreateVehicleAssignment();
@@ -101,6 +103,16 @@ export default function ShiftDetailPage() {
       },
       onError: (err) => toast({ title: "Error declining", description: err.message, variant: "destructive" }),
     });
+  };
+
+  const handleMoveToWaitlist = async (allocationId: string) => {
+    try {
+      await waitlistAllocation(shiftId, allocationId);
+      toast({ title: "Driver moved to waitlist" });
+      refreshAllocs();
+    } catch (err) {
+      toast({ title: "Error moving to waitlist", description: (err as Error).message, variant: "destructive" });
+    }
   };
 
   const handlePromoteFromWaitlist = (allocationId: string) => {
@@ -200,26 +212,40 @@ export default function ShiftDetailPage() {
         </TableCell>
       )}
       {type === "requested" && (
-        <TableCell className="text-right space-x-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 px-2 border-[#3DB324] text-[#3DB324] hover:bg-[#3DB324] hover:text-white"
-            onClick={() => handleConfirm(a.id)}
-            disabled={confirmAlloc.isPending}
-            data-testid={`btn-confirm-${a.id}`}
-          >
-            <Check className="h-3.5 w-3.5" />
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-7 px-2 border-red-400 text-red-500 hover:bg-red-500 hover:text-white"
-            onClick={() => setDeclineTarget(a.id)}
-            data-testid={`btn-decline-${a.id}`}
-          >
-            <X className="h-3.5 w-3.5" />
-          </Button>
+        <TableCell className="text-right">
+          <div className="flex items-center justify-end gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 border-[#3DB324] text-[#3DB324] hover:bg-[#3DB324] hover:text-white"
+              onClick={() => handleConfirm(a.id)}
+              disabled={confirmAlloc.isPending}
+              data-testid={`btn-confirm-${a.id}`}
+              title="Confirm allocation"
+            >
+              <Check className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 border-yellow-400 text-yellow-600 hover:bg-yellow-400 hover:text-white"
+              onClick={() => handleMoveToWaitlist(a.id)}
+              title="Move to waitlist"
+              data-testid={`btn-waitlist-${a.id}`}
+            >
+              <ArrowUp className="h-3.5 w-3.5" />
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 px-2 border-red-400 text-red-500 hover:bg-red-500 hover:text-white"
+              onClick={() => setDeclineTarget(a.id)}
+              data-testid={`btn-decline-${a.id}`}
+              title="Decline allocation"
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          </div>
         </TableCell>
       )}
     </TableRow>

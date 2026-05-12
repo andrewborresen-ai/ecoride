@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRoute } from "wouter";
 import {
   useAdminGetDriver,
@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, RefreshCcw, FileSignature, Clock, DollarSign } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
+import { useAdminApi } from "@/lib/adminApi";
 
 interface DriverProfile {
   id: string;
@@ -103,9 +104,15 @@ export default function DriverDetailPage() {
   const [approveConfirmOpen, setApproveConfirmOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
   const [suspendReason, setSuspendReason] = useState("");
-  const [notes, setNotes] = useState<string>(() => {
-    try { return localStorage.getItem(`driver-notes-${driverId}`) ?? ""; } catch { return ""; }
-  });
+  const [notes, setNotes] = useState<string>("");
+  const [notesSaving, setNotesSaving] = useState(false);
+  const { getDriverNotes, patchDriverNotes } = useAdminApi();
+
+  const loadNotes = useCallback(async () => {
+    try { const res = await getDriverNotes(driverId); setNotes((res?.data as { notes?: string } | undefined)?.notes ?? ""); } catch { /* noop */ }
+  }, [driverId, getDriverNotes]);
+
+  useEffect(() => { void loadNotes(); }, [loadNotes]);
 
   const { data: driverRes, isLoading: loadingDriver } = useAdminGetDriver(driverId);
   const driver = driverRes?.data as DriverProfile | undefined;
@@ -166,9 +173,16 @@ export default function DriverDetailPage() {
     toast({ title: "Telematics sync queued", description: "The driver will be re-synced on the next telematics cycle." });
   };
 
-  const saveNotes = () => {
-    try { localStorage.setItem(`driver-notes-${driverId}`, notes); } catch { /* noop */ }
-    toast({ title: "Notes saved" });
+  const saveNotes = async () => {
+    setNotesSaving(true);
+    try {
+      await patchDriverNotes(driverId, notes);
+      toast({ title: "Notes saved" });
+    } catch {
+      toast({ title: "Failed to save notes", variant: "destructive" });
+    } finally {
+      setNotesSaving(false);
+    }
   };
 
   const canApprove = driver?.status === "submitted" || driver?.status === "pending";
@@ -560,8 +574,10 @@ export default function DriverDetailPage() {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
-              <Button onClick={saveNotes} className="bg-[#3DB324] hover:bg-[#329b1d]">Save Notes</Button>
-              <p className="text-xs text-gray-400">Note: These notes are stored in your browser and not synced to the server.</p>
+              <Button onClick={saveNotes} disabled={notesSaving} className="bg-[#3DB324] hover:bg-[#329b1d]">
+                {notesSaving ? "Saving…" : "Save Notes"}
+              </Button>
+              <p className="text-xs text-gray-400">Notes are shared across all admins and stored securely on the server.</p>
             </CardContent>
           </Card>
         </TabsContent>

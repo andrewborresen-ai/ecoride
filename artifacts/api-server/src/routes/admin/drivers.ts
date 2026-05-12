@@ -214,4 +214,27 @@ router.post(
   }
 );
 
+router.get("/v1/admin/drivers/:driverId/notes", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const raw = Array.isArray(req.params.driverId) ? req.params.driverId[0] : req.params.driverId;
+  const [driver] = await db.select({ adminNotes: driverProfilesTable.adminNotes }).from(driverProfilesTable).where(eq(driverProfilesTable.id, raw));
+  if (!driver) {
+    res.status(404).json({ success: false, error: "Driver not found", data: null, meta: null });
+    return;
+  }
+  res.json(ok({ notes: driver.adminNotes ?? "" }));
+});
+
+router.patch("/v1/admin/drivers/:driverId/notes", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const raw = Array.isArray(req.params.driverId) ? req.params.driverId[0] : req.params.driverId;
+  const body = req.body as { notes?: string };
+  const notes = typeof body.notes === "string" ? body.notes : null;
+  const [existing] = await db.select({ id: driverProfilesTable.id }).from(driverProfilesTable).where(eq(driverProfilesTable.id, raw));
+  if (!existing) {
+    res.status(404).json({ success: false, error: "Driver not found", data: null, meta: null });
+    return;
+  }
+  await db.update(driverProfilesTable).set({ adminNotes: notes }).where(eq(driverProfilesTable.id, raw));
+  res.json(ok({ notes: notes ?? "" }));
+});
+
 export default router;

@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { db, notificationsTable, usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, isNotNull, desc } from "drizzle-orm";
 import { requireAdmin } from "../../middlewares/auth";
 import type { AuthenticatedRequest } from "../../middlewares/auth";
 import { ok } from "../../lib/response";
@@ -50,6 +50,16 @@ router.post("/v1/admin/notifications/send", requireAdmin, async (req: Authentica
 
   req.log.info({ notificationId: notification.id, userId: d.userId }, "Notification sent");
   res.status(201).json(ok(notification));
+});
+
+router.get("/v1/admin/notifications/sent", requireAdmin, async (_req: AuthenticatedRequest, res): Promise<void> => {
+  const sent = await db
+    .select()
+    .from(notificationsTable)
+    .where(isNotNull(notificationsTable.sentBy))
+    .orderBy(desc(notificationsTable.createdAt))
+    .limit(200);
+  res.json(ok(sent, { total: sent.length }));
 });
 
 export default router;

@@ -156,6 +156,49 @@ router.post(
 );
 
 router.post(
+  "/v1/admin/shifts/:shiftId/allocations/:allocationId/waitlist",
+  requireAdmin,
+  async (req: AuthenticatedRequest, res): Promise<void> => {
+    const shiftRaw = Array.isArray(req.params.shiftId) ? req.params.shiftId[0] : req.params.shiftId;
+    const allocRaw = Array.isArray(req.params.allocationId) ? req.params.allocationId[0] : req.params.allocationId;
+
+    const [allocation] = await db
+      .select()
+      .from(shiftAllocationsTable)
+      .where(and(eq(shiftAllocationsTable.id, allocRaw), eq(shiftAllocationsTable.shiftId, shiftRaw)));
+
+    if (!allocation) {
+      res.status(404).json({ success: false, error: "Allocation not found", data: null, meta: null });
+      return;
+    }
+
+    if (allocation.status !== "requested") {
+      res.status(400).json({ success: false, error: `Cannot waitlist allocation with status: ${allocation.status}`, data: null, meta: null });
+      return;
+    }
+
+    const [updated] = await db
+      .update(shiftAllocationsTable)
+      .set({ status: "waitlisted" })
+      .where(eq(shiftAllocationsTable.id, allocRaw))
+      .returning();
+
+    await db.insert(notificationsTable).values({
+      id: newId(),
+      userId: allocation.userId,
+      title: "Added to Waitlist",
+      body: "You have been added to the shift waitlist. You will be notified if a spot opens up.",
+      type: "shift_waitlisted",
+      status: "unread",
+      sentBy: req.userId!,
+    });
+
+    req.log.info({ allocationId: allocRaw }, "Shift allocation moved to waitlist");
+    res.json(ok(updated));
+  }
+);
+
+router.post(
   "/v1/admin/shifts/:shiftId/allocations/:allocationId/decline",
   requireAdmin,
   async (req: AuthenticatedRequest, res): Promise<void> => {

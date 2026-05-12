@@ -57,6 +57,8 @@ export const driverProfilesTable = pgTable("driver_profiles", {
   telematicsLastSyncedAt: timestamp("telematics_last_synced_at", { withTimezone: true }),
   telematicsSyncError: text("telematics_sync_error"),
 
+  adminNotes: text("admin_notes"),
+
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
