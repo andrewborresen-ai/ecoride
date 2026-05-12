@@ -34,9 +34,6 @@ interface ShiftItem {
   status?: string;
 }
 
-interface ShiftsData {
-  items: ShiftItem[];
-}
 
 function toLocalDatetime(isoString: string) {
   const d = new Date(isoString);
@@ -55,7 +52,7 @@ export default function ShiftsPage() {
   const { data: shiftsRes, isLoading } = useAdminListShifts({
     status: statusFilter !== "all" ? statusFilter : undefined,
   });
-  const shifts = (shiftsRes?.data as ShiftsData | undefined)?.items ?? [];
+  const shifts = (shiftsRes?.data as ShiftItem[] | undefined) ?? [];
 
   const createShift = useAdminCreateShift();
   const updateShift = useAdminUpdateShift();

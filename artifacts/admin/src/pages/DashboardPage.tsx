@@ -57,26 +57,26 @@ export default function DashboardPage() {
   const summary = summaryRes?.data as DashboardSummary | undefined;
 
   const { data: recentDriversRes, isLoading: loadingDrivers } = useAdminListDrivers({ limit: 6 });
-  const recentDrivers = (recentDriversRes?.data as ListData<DriverItem> | undefined)?.items ?? [];
+  const recentDrivers = (recentDriversRes?.data as DriverItem[] | undefined) ?? [];
 
   const { data: pendingDriversRes } = useAdminListDrivers({ status: "submitted", limit: 100 });
-  const pendingCount = (pendingDriversRes?.data as ListData<DriverItem> | undefined)?.items.length ?? 0;
+  const pendingCount = (pendingDriversRes?.data as DriverItem[] | undefined)?.length ?? 0;
 
-  const { data: approvedDriversRes } = useAdminListDrivers({ status: "approved", limit: 1 });
-  const approvedTotal = (approvedDriversRes?.data as { total?: number; items: DriverItem[] } | undefined)?.items.length ?? 0;
+  const { data: approvedDriversRes } = useAdminListDrivers({ status: "approved", limit: 1000 });
+  const approvedTotal = (approvedDriversRes?.data as DriverItem[] | undefined)?.length ?? 0;
 
   const { data: allDriversRes } = useAdminListDrivers({ limit: 1000 });
-  const totalDriversCount = (allDriversRes?.data as ListData<DriverItem> | undefined)?.items.length ?? (summary?.totalDrivers ?? 0);
+  const totalDriversCount = (allDriversRes?.data as DriverItem[] | undefined)?.length ?? (summary?.totalDrivers ?? 0);
 
   const { data: openShiftsRes, isLoading: loadingShifts } = useAdminListShifts({
     status: "open",
     from: weekStart,
     to: weekEnd,
   });
-  const openShiftsThisWeek = (openShiftsRes?.data as ListData<ShiftItem> | undefined)?.items ?? [];
+  const openShiftsThisWeek = (openShiftsRes?.data as ShiftItem[] | undefined) ?? [];
 
   const { data: allShiftsRes } = useAdminListShifts({ status: "open" });
-  const openShiftsAll = (allShiftsRes?.data as ListData<ShiftItem> | undefined)?.items ?? [];
+  const openShiftsAll = (allShiftsRes?.data as ShiftItem[] | undefined) ?? [];
   const shiftsNeedingAlloc = openShiftsAll.filter(
     (s) => (s.confirmedCount ?? 0) < (s.capacity ?? 0) && (s.capacity ?? 0) > 0
   ).length;

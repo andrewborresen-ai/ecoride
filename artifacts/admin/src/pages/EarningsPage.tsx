@@ -37,9 +37,6 @@ interface EarningsItem {
   status: string;
 }
 
-interface EarningsData {
-  items: EarningsItem[];
-}
 
 const fmt = (cents: number) => `R ${(cents / 100).toFixed(2)}`;
 
@@ -330,7 +327,7 @@ export default function EarningsPage() {
   const queryClient = useQueryClient();
 
   const { data: earningsRes, isLoading } = useAdminListEarnings({ status: status !== "all" ? status : undefined });
-  const earnings = (earningsRes?.data as EarningsData | undefined)?.items ?? [];
+  const earnings = (earningsRes?.data as EarningsItem[] | undefined) ?? [];
 
   const { unpublishEarnings } = useAdminApi();
   const createEarnings = useAdminCreateEarnings();

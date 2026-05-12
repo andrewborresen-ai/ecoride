@@ -54,10 +54,6 @@ interface VehicleItem {
   model?: string;
 }
 
-interface ListData<T> {
-  items: T[];
-}
-
 export default function ShiftDetailPage() {
   const [, params] = useRoute("/shifts/:id");
   const shiftId = params?.id ?? "";
@@ -68,14 +64,14 @@ export default function ShiftDetailPage() {
   const [declineReason, setDeclineReason] = useState("");
 
   const { data: shiftsRes } = useAdminListShifts({});
-  const allShifts = (shiftsRes?.data as ListData<ShiftItem> | undefined)?.items ?? [];
+  const allShifts = (shiftsRes?.data as ShiftItem[] | undefined) ?? [];
   const shift = allShifts.find((s) => s.id === shiftId);
 
   const { data: allocsRes, isLoading: loadingAllocs } = useAdminGetShiftAllocations(shiftId);
-  const allocations = (allocsRes?.data as ListData<AllocationItem> | undefined)?.items ?? [];
+  const allocations = (allocsRes?.data as AllocationItem[] | undefined) ?? [];
 
-  const { data: vehiclesRes } = useAdminListVehicles({ status: "active" });
-  const vehicles = (vehiclesRes?.data as ListData<VehicleItem> | undefined)?.items ?? [];
+  const { data: vehiclesRes } = useAdminListVehicles({ status: "available" });
+  const vehicles = (vehiclesRes?.data as VehicleItem[] | undefined) ?? [];
 
   const { waitlistAllocation } = useAdminApi();
   const confirmAlloc = useAdminConfirmAllocation();
@@ -179,7 +175,7 @@ export default function ShiftDetailPage() {
               </SelectTrigger>
               <SelectContent>
                 {vehicles.length === 0 ? (
-                  <SelectItem value="__none" disabled>No active vehicles</SelectItem>
+                  <SelectItem value="__none" disabled>No available vehicles</SelectItem>
                 ) : vehicles.map((v) => (
                   <SelectItem key={v.id} value={v.id}>
                     {v.registrationNumber}{v.make ? ` · ${v.make}` : ""}

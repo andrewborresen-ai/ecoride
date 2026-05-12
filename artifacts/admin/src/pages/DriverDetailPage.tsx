@@ -60,10 +60,6 @@ interface DriverDoc {
   reviewNotes?: string;
 }
 
-interface DocumentsData {
-  items: DriverDoc[];
-}
-
 interface AssignmentItem {
   id: string;
   shiftId?: string;
@@ -71,10 +67,6 @@ interface AssignmentItem {
   assignmentStart: string;
   assignmentEnd: string;
   status?: string;
-}
-
-interface AssignmentsData {
-  items: AssignmentItem[];
 }
 
 interface EarningsItem {
@@ -85,10 +77,6 @@ interface EarningsItem {
   deductionsCents?: number;
   netAmountCents?: number;
   status: string;
-}
-
-interface EarningsData {
-  items: EarningsItem[];
 }
 
 const fmt = (cents: number) => `R ${(cents / 100).toFixed(2)}`;
@@ -115,16 +103,17 @@ export default function DriverDetailPage() {
   useEffect(() => { void loadNotes(); }, [loadNotes]);
 
   const { data: driverRes, isLoading: loadingDriver } = useAdminGetDriver(driverId);
-  const driver = driverRes?.data as DriverProfile | undefined;
+  const driverDetail = driverRes?.data as { profile: DriverProfile; user: unknown; documents: DriverDoc[] } | undefined;
+  const driver = driverDetail?.profile;
 
   const { data: docsRes, isLoading: loadingDocs } = useAdminGetDriverDocuments(driverId);
-  const documents = (docsRes?.data as DocumentsData | undefined)?.items ?? [];
+  const documents = (docsRes?.data as DriverDoc[] | undefined) ?? [];
 
   const { data: assignmentsRes, isLoading: loadingAssignments } = useAdminListVehicleAssignments({ driverProfileId: driverId });
-  const assignments = (assignmentsRes?.data as AssignmentsData | undefined)?.items ?? [];
+  const assignments = (assignmentsRes?.data as AssignmentItem[] | undefined) ?? [];
 
   const { data: earningsRes, isLoading: loadingEarnings } = useAdminListEarnings({ driverProfileId: driverId });
-  const earningsList = (earningsRes?.data as EarningsData | undefined)?.items ?? [];
+  const earningsList = (earningsRes?.data as EarningsItem[] | undefined) ?? [];
 
   const approveDriver = useAdminApproveDriver();
   const rejectDriver = useAdminRejectDriver();

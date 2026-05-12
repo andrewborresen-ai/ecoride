@@ -34,9 +34,6 @@ interface VehicleItem {
   notes?: string;
 }
 
-interface VehiclesData {
-  items: VehicleItem[];
-}
 
 const EMPTY_VEHICLE: VehicleInput = {
   registrationNumber: "",
@@ -193,7 +190,7 @@ export default function VehiclesPage() {
     fleetType: fleetType !== "all" ? fleetType : undefined,
     status: status !== "all" ? status : undefined,
   });
-  const vehicles = (vehiclesRes?.data as VehiclesData | undefined)?.items ?? [];
+  const vehicles = (vehiclesRes?.data as VehicleItem[] | undefined) ?? [];
 
   const createVehicle = useAdminCreateVehicle();
   const updateVehicle = useAdminUpdateVehicle();
@@ -243,7 +240,8 @@ export default function VehiclesPage() {
           <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
+            <SelectItem value="available">Available</SelectItem>
+            <SelectItem value="assigned">Assigned</SelectItem>
             <SelectItem value="maintenance">Maintenance</SelectItem>
             <SelectItem value="retired">Retired</SelectItem>
           </SelectContent>
@@ -292,7 +290,7 @@ export default function VehiclesPage() {
                     <TableCell>{v.year ?? "—"}</TableCell>
                     <TableCell className="capitalize">{v.fleetType ?? "—"}</TableCell>
                     <TableCell>
-                      <Badge variant={v.status === "active" ? "default" : "secondary"}>{v.status ?? "—"}</Badge>
+                      <Badge variant={v.status === "available" ? "default" : "secondary"} className={v.status === "available" ? "bg-[#3DB324] hover:bg-[#3DB324]" : ""}>{v.status ?? "—"}</Badge>
                     </TableCell>
                     <TableCell className="font-mono text-xs text-gray-500">{v.telematicsVehicleId || "—"}</TableCell>
                     <TableCell>

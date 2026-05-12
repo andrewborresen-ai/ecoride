@@ -24,20 +24,12 @@ router.get("/v1/admin/dashboard/summary", requireAdmin, async (_req, res): Promi
   ]);
 
   res.json(ok({
-    drivers: {
-      total: allDrivers.length,
-      pending: pendingDrivers.length,
-      approved: approvedDrivers.length,
-    },
-    shifts: {
-      open: openShifts.length,
-    },
-    vehicles: {
-      total: allVehicles.length,
-    },
-    allocations: {
-      pendingRequests: pendingAllocations.length,
-    },
+    totalDrivers: allDrivers.length,
+    approvedDrivers: approvedDrivers.length,
+    pendingApplications: pendingDrivers.length,
+    openShifts: openShifts.length,
+    activeVehicles: allVehicles.length,
+    pendingAllocations: pendingAllocations.length,
   }));
 });
 

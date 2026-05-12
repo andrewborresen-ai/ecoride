@@ -27,13 +27,9 @@ interface AgreementItem {
   title: string;
   version: string;
   fleetType?: string;
-  isActive?: boolean;
+  status?: string;
   content?: string;
   createdAt: string;
-}
-
-interface AgreementsData {
-  items: AgreementItem[];
 }
 
 const EMPTY: AgreementInput = { title: "", version: "", content: "", fleetType: "electric" };
@@ -45,7 +41,7 @@ export default function AgreementsPage() {
   const queryClient = useQueryClient();
 
   const { data: agreementsRes, isLoading } = useAdminListAgreements();
-  const agreements = (agreementsRes?.data as AgreementsData | undefined)?.items ?? [];
+  const agreements = (agreementsRes?.data as AgreementItem[] | undefined) ?? [];
 
   const createAgreement = useAdminCreateAgreement();
   const updateAgreement = useAdminUpdateAgreement();
@@ -125,7 +121,6 @@ export default function AgreementsPage() {
                   <SelectContent>
                     <SelectItem value="electric">Electric (EcoRide)</SelectItem>
                     <SelectItem value="lpg">LPG (Khula Rides)</SelectItem>
-                    <SelectItem value="all">All Fleets</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -196,8 +191,8 @@ export default function AgreementsPage() {
                     <TableCell className="capitalize">{a.fleetType ?? "—"}</TableCell>
                     <TableCell className="text-sm text-gray-500">{format(new Date(a.createdAt), "MMM d, yyyy")}</TableCell>
                     <TableCell>
-                      <Badge variant={a.isActive ? "default" : "secondary"} className={a.isActive ? "bg-[#3DB324] hover:bg-[#3DB324]" : ""}>
-                        {a.isActive ? "Active" : "Draft"}
+                      <Badge variant={a.status === "active" ? "default" : "secondary"} className={a.status === "active" ? "bg-[#3DB324] hover:bg-[#3DB324]" : ""}>
+                        {a.status === "active" ? "Active" : a.status === "archived" ? "Archived" : "Draft"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right space-x-2">
@@ -209,7 +204,7 @@ export default function AgreementsPage() {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      {!a.isActive && (
+                      {a.status !== "active" && (
                         <Button
                           variant="outline"
                           size="sm"

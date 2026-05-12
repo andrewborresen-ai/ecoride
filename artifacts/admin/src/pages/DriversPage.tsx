@@ -22,10 +22,6 @@ interface DriverItem {
   createdAt?: string;
 }
 
-interface DriversData {
-  items: DriverItem[];
-  total?: number;
-}
 
 const STATUS_BADGE: Record<string, string> = {
   approved: "bg-green-100 text-green-800",
@@ -49,7 +45,7 @@ export default function DriversPage() {
     limit: 500,
   });
 
-  const raw = (data?.data as DriversData | undefined)?.items ?? [];
+  const raw = (data?.data as DriverItem[] | undefined) ?? [];
 
   const items = raw
     .filter((d) => fleetType === "all" || d.fleetType === fleetType)

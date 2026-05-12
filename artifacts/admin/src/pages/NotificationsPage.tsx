@@ -29,9 +29,6 @@ interface DriverItem {
   status?: string;
 }
 
-interface DriversData {
-  items: DriverItem[];
-}
 
 interface SentNotification {
   id: string;
@@ -117,7 +114,7 @@ export default function NotificationsPage() {
   const { getSentNotifications } = useAdminApi();
 
   const { data: driversRes } = useAdminListDrivers({ status: "approved", limit: 500 });
-  const allApprovedDrivers = (driversRes?.data as DriversData | undefined)?.items ?? [];
+  const allApprovedDrivers = (driversRes?.data as DriverItem[] | undefined) ?? [];
   const electricDrivers = allApprovedDrivers.filter((d) => d.fleetType === "electric");
   const lpgDrivers = allApprovedDrivers.filter((d) => d.fleetType === "lpg");
 
