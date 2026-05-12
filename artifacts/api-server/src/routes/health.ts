@@ -8,4 +8,9 @@ router.get("/healthz", (_req, res) => {
   res.json(data);
 });
 
+router.get("/v1/health", (_req, res) => {
+  const data = HealthCheckResponse.parse({ status: "ok" });
+  res.json(data);
+});
+
 export default router;

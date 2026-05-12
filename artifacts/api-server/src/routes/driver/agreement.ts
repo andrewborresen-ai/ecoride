@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { z } from "zod";
 import { db, driverProfilesTable, agreementsTable, agreementSignaturesTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth } from "../../middlewares/auth";
@@ -7,6 +8,11 @@ import { ok } from "../../lib/response";
 import { newId } from "../../lib/ids";
 
 const router: IRouter = Router();
+
+const SignAgreementBody = z.object({
+  legalName: z.string().min(1, "legalName is required"),
+  signatureObjectPath: z.string().optional(),
+});
 
 router.get("/v1/agreements/active", requireAuth, async (_req, res): Promise<void> => {
   const [agreement] = await db
@@ -48,11 +54,13 @@ router.post("/v1/drivers/me/agreement-signature", requireAuth, async (req: Authe
     return;
   }
 
-  const { legalName, signatureObjectPath } = req.body;
-  if (!legalName) {
-    res.status(400).json({ success: false, error: "legalName is required", data: null, meta: null });
+  const parsed = SignAgreementBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ success: false, error: parsed.error.issues[0]?.message ?? "Invalid request", data: null, meta: null });
     return;
   }
+
+  const { legalName, signatureObjectPath } = parsed.data;
 
   await db
     .update(agreementSignaturesTable)

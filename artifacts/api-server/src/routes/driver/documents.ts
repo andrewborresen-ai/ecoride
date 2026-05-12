@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { z } from "zod";
 import { db, driverProfilesTable, driverDocumentsTable } from "@workspace/db";
 import { eq, and, isNull } from "drizzle-orm";
 import { requireAuth } from "../../middlewares/auth";
@@ -10,16 +11,33 @@ import { ObjectStorageService } from "../../lib/objectStorage";
 const router: IRouter = Router();
 const storage = new ObjectStorageService();
 
-router.post("/v1/drivers/me/documents/upload-url", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
-  const { name, size, contentType } = req.body;
-  if (!name || !size || !contentType) {
-    res.status(400).json({ success: false, error: "name, size, contentType required", data: null, meta: null });
+const UploadBody = z.object({
+  name: z.string().min(1, "name is required"),
+  size: z.number().int().positive("size must be a positive integer"),
+  contentType: z.string().min(1, "contentType is required"),
+});
+
+const CreateDocumentBody = z.object({
+  documentType: z.string().min(1, "documentType is required"),
+  objectPath: z.string().min(1, "objectPath is required"),
+  fileName: z.string().optional(),
+  mimeType: z.string().optional(),
+  fileSizeBytes: z.number().int().positive().optional(),
+});
+
+async function getUploadUrl(req: AuthenticatedRequest, res: Parameters<Parameters<typeof router.post>[1]>[1]): Promise<void> {
+  const parsed = UploadBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ success: false, error: parsed.error.issues[0]?.message ?? "Invalid request", data: null, meta: null });
     return;
   }
   const uploadURL = await storage.getObjectEntityUploadURL();
   const objectPath = storage.normalizeObjectEntityPath(uploadURL);
-  res.json({ uploadURL, objectPath });
-});
+  res.json(ok({ uploadURL, objectPath }));
+}
+
+router.post("/v1/drivers/me/documents/upload-url", requireAuth, getUploadUrl);
+router.post("/v1/drivers/me/documents/upload", requireAuth, getUploadUrl);
 
 router.get("/v1/drivers/me/documents", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
   const [profile] = await db.select().from(driverProfilesTable).where(eq(driverProfilesTable.userId, req.userId!));
@@ -41,11 +59,13 @@ router.post("/v1/drivers/me/documents", requireAuth, async (req: AuthenticatedRe
     return;
   }
 
-  const { documentType, objectPath, fileName, mimeType, fileSizeBytes } = req.body;
-  if (!documentType || !objectPath) {
-    res.status(400).json({ success: false, error: "documentType and objectPath required", data: null, meta: null });
+  const parsed = CreateDocumentBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ success: false, error: parsed.error.issues[0]?.message ?? "Invalid request", data: null, meta: null });
     return;
   }
+
+  const { documentType, objectPath, fileName, mimeType, fileSizeBytes } = parsed.data;
 
   const [doc] = await db
     .insert(driverDocumentsTable)

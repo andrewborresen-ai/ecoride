@@ -85,6 +85,35 @@ export async function registerDriver(params: {
   };
 }
 
+export interface RegisterVehicleResult {
+  success: boolean;
+  telematicsVehicleId?: string;
+  error?: string | null;
+}
+
+export async function registerVehicle(params: {
+  vehicleId: string;
+  registrationNumber: string;
+  make: string | null;
+  model: string | null;
+}): Promise<RegisterVehicleResult> {
+  const result = await post("/vehicles/register", {
+    externalId: params.vehicleId,
+    registrationNumber: params.registrationNumber,
+    make: params.make,
+    model: params.model,
+  });
+
+  if (!result.success) {
+    return { success: false, error: result.error };
+  }
+
+  return {
+    success: true,
+    telematicsVehicleId: (result.data as { vehicleId?: string })?.vehicleId,
+  };
+}
+
 export interface CreateAssignmentResult {
   success: boolean;
   telematicsAssignmentId?: string;
@@ -148,31 +177,81 @@ export async function requestUnlock(params: {
   };
 }
 
-export interface RegisterVehicleResult {
+export interface IgnitionValidationResult {
   success: boolean;
-  telematicsVehicleId?: string;
+  validationRequestId?: string;
+  status?: "pending" | "passed" | "failed";
+  failureReason?: string;
   error?: string | null;
 }
 
-export async function registerVehicle(params: {
-  vehicleId: string;
-  registrationNumber: string;
-  make: string | null;
-  model: string | null;
-}): Promise<RegisterVehicleResult> {
-  const result = await post("/vehicles/register", {
-    externalId: params.vehicleId,
-    registrationNumber: params.registrationNumber,
-    make: params.make,
-    model: params.model,
+export async function triggerIgnitionValidation(params: {
+  vehicleAccessEventId: string;
+  telematicsAssignmentId: string;
+  telematicsDriverId: string;
+  telematicsVehicleId: string;
+  biometricToken?: string;
+}): Promise<IgnitionValidationResult> {
+  const result = await post("/vehicles/ignition/validate", {
+    accessEventId: params.vehicleAccessEventId,
+    assignmentId: params.telematicsAssignmentId,
+    driverId: params.telematicsDriverId,
+    vehicleId: params.telematicsVehicleId,
+    biometricToken: params.biometricToken,
   });
 
   if (!result.success) {
     return { success: false, error: result.error };
   }
 
+  const data = result.data as {
+    requestId?: string;
+    status?: "pending" | "passed" | "failed";
+    failureReason?: string;
+  };
+
   return {
     success: true,
-    telematicsVehicleId: (result.data as { vehicleId?: string })?.vehicleId,
+    validationRequestId: data?.requestId,
+    status: data?.status ?? "pending",
+    failureReason: data?.failureReason,
   };
 }
+
+export interface CallbackPayload {
+  accessEventId: string;
+  assignmentId: string;
+  driverId: string;
+  vehicleId: string;
+  status: "passed" | "failed";
+  failureReason?: string;
+  timestamp?: string;
+}
+
+export interface ReceiveCallbackResult {
+  processed: boolean;
+  accessEventId: string;
+  status: "passed" | "failed";
+}
+
+export function receiveCallback(payload: CallbackPayload): ReceiveCallbackResult {
+  logger.info(
+    {
+      accessEventId: payload.accessEventId,
+      assignmentId: payload.assignmentId,
+      driverId: payload.driverId,
+      vehicleId: payload.vehicleId,
+      status: payload.status,
+      failureReason: payload.failureReason,
+    },
+    "Telematics callback received"
+  );
+
+  return {
+    processed: true,
+    accessEventId: payload.accessEventId,
+    status: payload.status,
+  };
+}
+
+export { get as telematicsGet };
