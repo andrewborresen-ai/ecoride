@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "N3yTVVM6HT_yLEoPNVu36"
+uri = "file://artifacts/driver/assets/images/icon.png"
+type = "image"
+title = "ecoride driver app icon"
