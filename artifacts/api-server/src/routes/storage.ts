@@ -5,6 +5,7 @@ import {
   RequestUploadUrlResponse,
 } from "@workspace/api-zod";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { canAccessObject, ObjectPermission } from "../lib/objectAcl";
 import { getAuth } from "@clerk/express";
 import { db, usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
@@ -87,8 +88,9 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
  * GET /storage/objects/*
  *
  * Serve private object entities from PRIVATE_OBJECT_DIR.
- * Requires authentication. The authenticated user must own the object
- * (object path must contain their internal user ID as a path segment).
+ * Requires authentication. Access is enforced via object ACL metadata
+ * (owner field must match the requesting user's internal ID).
+ * Admins bypass the ACL check and may read any object.
  */
 router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   const auth = getAuth(req);
@@ -108,12 +110,20 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
     const objectPath = `/objects/${wildcardPath}`;
 
-    if (user.role !== "admin" && !wildcardPath.includes(user.id)) {
-      res.status(403).json({ error: "Forbidden" });
-      return;
-    }
-
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+
+    if (user.role !== "admin") {
+      const hasAccess = await canAccessObject({
+        userId: user.id,
+        objectFile,
+        requestedPermission: ObjectPermission.READ,
+      });
+
+      if (!hasAccess) {
+        res.status(403).json({ error: "Forbidden" });
+        return;
+      }
+    }
 
     const response = await objectStorageService.downloadObject(objectFile);
 

@@ -1,23 +1,34 @@
 import { Router, type IRouter } from "express";
+import { z } from "zod";
 import { db, driverProfilesTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { requireDriver as requireAuth } from "../../middlewares/auth";
+import { requireDriver } from "../../middlewares/auth";
 import type { AuthenticatedRequest } from "../../middlewares/auth";
 import { ok } from "../../lib/response";
-import type { InsertDriverProfile } from "@workspace/db";
 
 const router: IRouter = Router();
 
-type DriverProfilePatch = Partial<Omit<InsertDriverProfile, "id" | "userId" | "status" | "telematicsDriverId" | "telematicsSyncStatus" | "telematicsRegisteredAt" | "telematicsLastSyncedAt" | "telematicsSyncError" | "approvedAt" | "approvedBy" | "rejectedAt" | "rejectedBy" | "rejectionReason" | "suspendedAt" | "suspendedBy" | "suspensionReason" | "submittedAt" | "profileCompletedAt" | "documentsCompletedAt" | "agreementSignedAt">>;
+const PatchProfileBody = z.object({
+  firstName: z.string().min(1).optional(),
+  lastName: z.string().min(1).optional(),
+  dateOfBirth: z.string().optional(),
+  idNumber: z.string().optional(),
+  phone: z.string().optional(),
+  streetAddress: z.string().optional(),
+  suburb: z.string().optional(),
+  city: z.string().optional(),
+  province: z.string().optional(),
+  postalCode: z.string().optional(),
+  bankName: z.string().optional(),
+  accountNumber: z.string().optional(),
+  accountType: z.string().optional(),
+  branchCode: z.string().optional(),
+  boltDriverId: z.string().optional(),
+  boltDeclarationAccepted: z.boolean().optional(),
+  fleetType: z.enum(["electric", "lpg"]).optional(),
+}).strict();
 
-const ALLOWED_PATCH_FIELDS: (keyof DriverProfilePatch)[] = [
-  "firstName", "lastName", "dateOfBirth", "idNumber", "phone",
-  "streetAddress", "suburb", "city", "province", "postalCode",
-  "bankName", "accountNumber", "accountType", "branchCode",
-  "boltDriverId", "boltDeclarationAccepted", "fleetType",
-];
-
-router.get("/v1/drivers/me/profile", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.get("/v1/drivers/me/profile", requireDriver, async (req: AuthenticatedRequest, res): Promise<void> => {
   const [profile] = await db.select().from(driverProfilesTable).where(eq(driverProfilesTable.userId, req.userId!));
   if (!profile) {
     res.status(404).json({ success: false, error: "Profile not found", data: null, meta: null });
@@ -26,19 +37,20 @@ router.get("/v1/drivers/me/profile", requireAuth, async (req: AuthenticatedReque
   res.json(ok(profile));
 });
 
-router.patch("/v1/drivers/me/profile", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
+router.patch("/v1/drivers/me/profile", requireDriver, async (req: AuthenticatedRequest, res): Promise<void> => {
   const [profile] = await db.select().from(driverProfilesTable).where(eq(driverProfilesTable.userId, req.userId!));
   if (!profile) {
     res.status(404).json({ success: false, error: "Profile not found", data: null, meta: null });
     return;
   }
 
-  const updates: DriverProfilePatch = {};
-  for (const key of ALLOWED_PATCH_FIELDS) {
-    if (key in req.body) {
-      (updates as Record<string, unknown>)[key] = req.body[key];
-    }
+  const parsed = PatchProfileBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ success: false, error: parsed.error.issues[0]?.message ?? "Invalid request", data: null, meta: null });
+    return;
   }
+
+  const updates = Object.fromEntries(Object.entries(parsed.data).filter(([, v]) => v !== undefined));
 
   if (Object.keys(updates).length === 0) {
     res.json(ok(profile));
@@ -47,7 +59,7 @@ router.patch("/v1/drivers/me/profile", requireAuth, async (req: AuthenticatedReq
 
   const [updated] = await db
     .update(driverProfilesTable)
-    .set(updates)
+    .set(updates as never)
     .where(eq(driverProfilesTable.userId, req.userId!))
     .returning();
 

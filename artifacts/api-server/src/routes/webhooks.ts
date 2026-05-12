@@ -22,11 +22,19 @@ function verifyWebhookSignature(req: Request): boolean {
     return false;
   }
 
-  const rawBody = JSON.stringify(req.body);
+  const rawBody: Buffer | undefined = (req as Request & { rawBody?: Buffer }).rawBody;
+  if (!rawBody) {
+    logger.warn("Raw body not available for webhook signature verification");
+    return false;
+  }
+
   const expectedSig = "sha256=" + createHmac("sha256", WEBHOOK_SECRET).update(rawBody).digest("hex");
 
   try {
-    return timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSig));
+    const sigBuf = Buffer.from(signature);
+    const expBuf = Buffer.from(expectedSig);
+    if (sigBuf.length !== expBuf.length) return false;
+    return timingSafeEqual(sigBuf, expBuf);
   } catch {
     return false;
   }

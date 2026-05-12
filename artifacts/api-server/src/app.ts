@@ -1,4 +1,4 @@
-import express, { type Express } from "express";
+import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
@@ -36,8 +36,6 @@ app.use(
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
 app.use(cors({ credentials: true, origin: true }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 app.use(
   clerkMiddleware((req) => ({
@@ -47,6 +45,21 @@ app.use(
     ),
   })),
 );
+
+app.use("/api/v1/webhooks", express.raw({ type: "application/json" }), (req: Request, _res: Response, next: NextFunction) => {
+  if (req.body instanceof Buffer) {
+    (req as Request & { rawBody: Buffer }).rawBody = req.body;
+    try {
+      req.body = JSON.parse(req.body.toString("utf8")) as unknown;
+    } catch {
+      req.body = {};
+    }
+  }
+  next();
+});
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 app.use("/api", router);
 
