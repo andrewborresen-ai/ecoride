@@ -7,7 +7,6 @@ import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import { useEffect, useRef } from 'react';
 import { useGetMe, getGetMeQueryKey, setAuthTokenGetter } from "@workspace/api-client-react";
-import { Button } from "@/components/ui/button";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { Layout } from "@/components/Layout";
@@ -139,7 +138,6 @@ interface MeData {
 
 function AdminGuard({ children }: { children: React.ReactNode }) {
   const { isLoaded, isSignedIn } = useUser();
-  const { signOut } = useClerk();
   const { data: me, isLoading } = useGetMe({ query: { enabled: !!isSignedIn, queryKey: getGetMeQueryKey() } });
 
   if (!isLoaded || isLoading) {
@@ -154,23 +152,7 @@ function AdminGuard({ children }: { children: React.ReactNode }) {
   const role = userData?.user?.role;
 
   if (role !== "admin" && role !== "superadmin") {
-    return (
-      <div className="flex min-h-[100dvh] items-center justify-center bg-gray-50 px-4">
-        <div className="text-center space-y-4 max-w-sm">
-          <h1 className="text-2xl font-bold text-red-600">Access Denied</h1>
-          <p className="text-gray-600">
-            This portal is restricted to authorised EcoRide administrators only. Your account does not have the required role.
-          </p>
-          <Button
-            variant="outline"
-            onClick={() => signOut()}
-            data-testid="btn-access-denied-signout"
-          >
-            Sign Out
-          </Button>
-        </div>
-      </div>
-    );
+    return <Redirect to="/sign-in" />;
   }
 
   return <>{children}</>;

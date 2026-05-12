@@ -23,9 +23,6 @@ interface AccessEvent {
   telematicsVehicleId?: string;
 }
 
-interface AccessEventsData {
-  items: AccessEvent[];
-}
 
 export default function FleetAccessPage() {
   const [vehicleId, setVehicleId] = useState("");
@@ -40,7 +37,7 @@ export default function FleetAccessPage() {
     from: fromDate ? new Date(fromDate).toISOString() : undefined,
     to: toDate ? new Date(toDate + "T23:59:59").toISOString() : undefined,
   });
-  const allEvents = (eventsRes?.data as AccessEventsData | undefined)?.items ?? [];
+  const allEvents = (eventsRes?.data as AccessEvent[] | undefined) ?? [];
   const events = eventType === "all" ? allEvents : allEvents.filter((e) => e.eventType === eventType);
 
   const clearFilters = () => {

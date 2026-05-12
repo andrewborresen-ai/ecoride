@@ -182,6 +182,17 @@ router.post("/v1/admin/drivers/:driverId/suspend", requireAdmin, async (req: Aut
     .where(eq(driverProfilesTable.id, raw))
     .returning();
 
+  await db.insert(notificationsTable).values({
+    id: newId(),
+    userId: profile.userId,
+    title: "Account Suspended",
+    body: `Your EcoRide driver account has been suspended. Reason: ${parsed.data.reason}`,
+    type: "account_suspended",
+    referenceType: "driver_profile",
+    referenceId: raw,
+    sentBy: req.userId!,
+  });
+
   req.log.info({ driverProfileId: raw }, "Driver suspended");
   res.json(ok(updated));
 });

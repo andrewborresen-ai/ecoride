@@ -11,7 +11,7 @@ const router: IRouter = Router();
 
 const CreateEarningsBody = z.object({
   driverProfileId: z.string().min(1),
-  userId: z.string().min(1),
+  userId: z.string().optional(),
   periodStart: z.string().min(1, "periodStart is required"),
   periodEnd: z.string().min(1, "periodEnd is required"),
   currencyCode: z.string().length(3).default("ZAR"),
@@ -71,12 +71,23 @@ router.post("/v1/admin/earnings", requireAdmin, async (req: AuthenticatedRequest
   }
 
   const d = parsed.data;
+
+  let resolvedUserId = d.userId;
+  if (!resolvedUserId) {
+    const [prof] = await db.select({ userId: driverProfilesTable.userId }).from(driverProfilesTable).where(eq(driverProfilesTable.id, d.driverProfileId));
+    if (!prof) {
+      res.status(404).json({ success: false, error: "Driver profile not found", data: null, meta: null });
+      return;
+    }
+    resolvedUserId = prof.userId;
+  }
+
   const [record] = await db
     .insert(earningsTable)
     .values({
       id: newId(),
       driverProfileId: d.driverProfileId,
-      userId: d.userId,
+      userId: resolvedUserId,
       shiftId: d.shiftId ?? null,
       shiftAllocationId: d.shiftAllocationId ?? null,
       periodStart: new Date(d.periodStart),
