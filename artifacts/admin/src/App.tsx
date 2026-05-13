@@ -90,7 +90,7 @@ const clerkAppearance = {
     footerActionText: "text-[#6b7280]",
     footerAction: "bg-[#F5F7F5] rounded-xl border border-[#E2E8DF]",
     developmentUsageBadge: "!hidden",
-    badge: "text-[10px] font-semibold text-[#6b7280] bg-[#F5F7F5] border border-[#E2E8DF] rounded-full px-2 py-0.5 top-auto bottom-auto translate-y-0",
+    badge: "text-[10px] font-semibold text-[#6b7280] bg-[#F5F7F5] border border-[#E2E8DF] rounded-full px-2 py-0.5 top-auto bottom-auto translate-y-0 !right-4",
     dividerText: "text-[#6b7280] text-sm",
     dividerLine: "bg-[#E2E8DF]",
     identityPreviewEditButton: "text-[#3DB324] font-semibold",
