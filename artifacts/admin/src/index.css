@@ -313,6 +313,11 @@
   display: none !important;
 }
 
+/* "Last used" badge — pull it away from the right edge */
+.cl-badge {
+  right: 1rem !important;
+}
+
 /* Alert */
 .cl-alert {
   border-radius: 12px !important;
