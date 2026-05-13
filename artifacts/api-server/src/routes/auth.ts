@@ -2,7 +2,7 @@ import { Router, type IRouter } from "express";
 import { z } from "zod";
 import { getAuth } from "@clerk/express";
 import { db, usersTable, driverProfilesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { newId } from "../lib/ids";
 import { ok } from "../lib/response";
 import type { AuthenticatedRequest } from "../middlewares/auth";
@@ -86,10 +86,25 @@ router.post("/v1/auth/admin-register", async (req, res): Promise<void> => {
 
   const { email } = parsed.data;
 
-  const existing = await db.select().from(usersTable).where(eq(usersTable.clerkId, auth.userId));
+  const existing = await db
+    .select()
+    .from(usersTable)
+    .where(or(eq(usersTable.clerkId, auth.userId), eq(usersTable.email, email)));
+
   if (existing.length > 0) {
-    const [user] = existing;
-    res.status(200).json(ok({ user, profile: null }));
+    const [found] = existing;
+    // If found by email but with a stale Clerk ID (re-registered), update it
+    if (found.clerkId !== auth.userId) {
+      const [updated] = await db
+        .update(usersTable)
+        .set({ clerkId: auth.userId, updatedAt: new Date() })
+        .where(eq(usersTable.id, found.id))
+        .returning();
+      req.log.info({ userId: updated.id }, "Admin clerk_id updated on re-registration");
+      res.status(200).json(ok({ user: updated, profile: null }));
+    } else {
+      res.status(200).json(ok({ user: found, profile: null }));
+    }
     return;
   }
 

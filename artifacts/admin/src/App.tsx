@@ -195,7 +195,7 @@ function AuthCard({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4 py-8">
       <div
-        className="w-[380px] max-w-full rounded-[20px] bg-white pt-8"
+        className="w-[380px] max-w-full rounded-[20px] bg-white pt-8 pb-8"
         style={{ boxShadow: "0 4px 24px rgba(28,33,38,0.10)", border: "1px solid #E2E8DF" }}
       >
         <EcoRideLogo />

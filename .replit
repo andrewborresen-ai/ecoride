@@ -1,4 +1,4 @@
-modules = ["nodejs-24", "python-3.11"]
+modules = ["nodejs-24", "python-3.11", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -47,3 +47,6 @@ externalPort = 3000
 
 [userenv.shared]
 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_cnVsaW5nLWVhZ2xlLTE3LmNsZXJrLmFjY291bnRzLmRldiQ"
+
+[nix]
+channel = "stable-25_05"
