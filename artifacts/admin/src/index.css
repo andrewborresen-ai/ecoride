@@ -313,9 +313,9 @@
   display: none !important;
 }
 
-/* "Last used" badge — pull it away from the right edge */
+/* Hide "Last used" badge */
 .cl-badge {
-  right: 1rem !important;
+  display: none !important;
 }
 
 /* Alert */
