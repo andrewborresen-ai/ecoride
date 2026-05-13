@@ -120,6 +120,23 @@ function ClerkQueryClientCacheInvalidator() {
   return null;
 }
 
+function HideClerkLastUsedBadge() {
+  useEffect(() => {
+    function hideBadges() {
+      document.querySelectorAll("*").forEach((el) => {
+        if (el.textContent?.trim() === "Last used" && (el as HTMLElement).style) {
+          (el as HTMLElement).style.display = "none";
+        }
+      });
+    }
+    hideBadges();
+    const observer = new MutationObserver(hideBadges);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+  return null;
+}
+
 function ClerkTokenBridge() {
   const { getToken } = useAuth();
   useEffect(() => {
@@ -329,6 +346,7 @@ function ClerkProviderWithRoutes() {
       <QueryClientProvider client={queryClient}>
         <ClerkQueryClientCacheInvalidator />
         <ClerkTokenBridge />
+        <HideClerkLastUsedBadge />
         <ClerkAdminSyncBridge onSynced={() => setSynced(true)} />
         <Switch>
           <Route path="/" component={HomeRedirect} />

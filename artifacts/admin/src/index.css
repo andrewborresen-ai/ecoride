@@ -313,8 +313,12 @@
   display: none !important;
 }
 
-/* Hide "Last used" badge */
-.cl-badge {
+/* Hide "Last used" badge — multiple selectors to cover Clerk v5/v6 class variants */
+.cl-badge,
+[data-localization-key="badge__lastUsed"],
+[class*="cl-badge"],
+[class*="Badge"][class*="lastUsed"],
+[class*="Badge"][class*="last"] {
   display: none !important;
 }
 
