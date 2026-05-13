@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "EcoRide Driver",
-    "slug": "driver",
+    "name": "EcoRide",
+    "slug": "ecoride",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "driver",
+    "scheme": "ecoride",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -15,13 +15,13 @@
     },
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.ecoride.driver"
+      "bundleIdentifier": "com.ecoride.app"
     },
     "android": {
-      "package": "com.ecoride.driver"
+      "package": "com.ecoride.app"
     },
     "web": {
-      "favicon": "./assets/images/icon.png"
+      "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
       [
