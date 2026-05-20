@@ -15,6 +15,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useGetMyProfile, useUpdateMyProfile } from "@workspace/api-client-react";
+import { toTitleCase } from "@/utils/text";
 import { apiData } from "@/types/api";
 import type { DriverProfile } from "@/types/api";
 
@@ -47,8 +48,8 @@ export default function PersonalStep() {
   const { mutateAsync: updateProfile } = useUpdateMyProfile();
   const profile = apiData<DriverProfile>(profileRes);
 
-  const [firstName, setFirstName] = useState(profile?.firstName ?? "");
-  const [lastName, setLastName] = useState(profile?.lastName ?? "");
+  const [firstName, setFirstName] = useState(toTitleCase(profile?.firstName));
+  const [lastName, setLastName] = useState(toTitleCase(profile?.lastName));
   const [dateOfBirth, setDateOfBirth] = useState(profile?.dateOfBirth ?? "");
   const [idNumber, setIdNumber] = useState(profile?.idNumber ?? "");
   const [phone, setPhone] = useState(profile?.phone ?? "");
@@ -57,8 +58,8 @@ export default function PersonalStep() {
 
   useEffect(() => {
     if (profile) {
-      setFirstName(profile.firstName ?? "");
-      setLastName(profile.lastName ?? "");
+      setFirstName(toTitleCase(profile.firstName));
+      setLastName(toTitleCase(profile.lastName));
       setDateOfBirth(profile.dateOfBirth ?? "");
       setIdNumber(profile.idNumber ?? "");
       setPhone(profile.phone ?? "");

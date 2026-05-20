@@ -19,6 +19,7 @@ import {
   useCreateMyDocument,
 } from "@workspace/api-client-react";
 import { apiData } from "@/types/api";
+import { toTitleCase } from "@/utils/text";
 import type { DriverProfile, DriverDocument } from "@/types/api";
 
 const DOC_LABELS: Record<string, string> = {
@@ -176,7 +177,7 @@ export default function ProfileScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[s.fullName, { color: colors.foreground }]}>
-              {[profile?.firstName, profile?.lastName].filter(Boolean).join(" ") || "Driver"}
+              {toTitleCase([profile?.firstName, profile?.lastName].filter(Boolean).join(" ")) || "Driver"}
             </Text>
             {profile?.email ? (
               <Text style={[s.email, { color: colors.mutedForeground }]}>{profile.email}</Text>
@@ -189,8 +190,8 @@ export default function ProfileScreen() {
 
         <View style={[s.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>PERSONAL INFO</Text>
-          <InfoRow label="First Name" value={profile?.firstName} />
-          <InfoRow label="Last Name" value={profile?.lastName} />
+          <InfoRow label="First Name" value={toTitleCase(profile?.firstName)} />
+          <InfoRow label="Last Name" value={toTitleCase(profile?.lastName)} />
           <InfoRow label="Phone" value={profile?.phone} editable />
           <InfoRow label="Date of Birth" value={profile?.dateOfBirth} />
           <InfoRow label="SA ID Number" value={profile?.idNumber} />
@@ -198,16 +199,16 @@ export default function ProfileScreen() {
 
         <View style={[s.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>ADDRESS</Text>
-          <InfoRow label="Street" value={profile?.streetAddress} />
-          <InfoRow label="Suburb" value={profile?.suburb} />
-          <InfoRow label="City" value={profile?.city} />
-          <InfoRow label="Province" value={profile?.province} />
+          <InfoRow label="Street" value={toTitleCase(profile?.streetAddress)} />
+          <InfoRow label="Suburb" value={toTitleCase(profile?.suburb)} />
+          <InfoRow label="City" value={toTitleCase(profile?.city)} />
+          <InfoRow label="Province" value={toTitleCase(profile?.province)} />
           <InfoRow label="Postal Code" value={profile?.postalCode} />
         </View>
 
         <View style={[s.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[s.sectionTitle, { color: colors.mutedForeground }]}>BANKING</Text>
-          <InfoRow label="Bank" value={profile?.bankName} />
+          <InfoRow label="Bank" value={toTitleCase(profile?.bankName)} />
           <InfoRow
             label="Account"
             value={profile?.accountNumber ? `•••• ${profile.accountNumber.slice(-4)}` : null}

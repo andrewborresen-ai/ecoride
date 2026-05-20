@@ -8,6 +8,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useGetMyProfile, useUpdateMyProfile } from "@workspace/api-client-react";
+import { toTitleCase } from "@/utils/text";
 import { apiData } from "@/types/api";
 import type { DriverProfile } from "@/types/api";
 
@@ -31,7 +32,7 @@ export default function BankingStep() {
 
   useEffect(() => {
     if (profile) {
-      setBankName(profile.bankName ?? "");
+      setBankName(toTitleCase(profile.bankName));
       setAccountNumber(profile.accountNumber ?? "");
       setAccountType(profile.accountType ?? "Cheque");
       setBranchCode(profile.branchCode ?? "");

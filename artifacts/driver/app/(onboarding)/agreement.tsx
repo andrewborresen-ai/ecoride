@@ -18,6 +18,7 @@ import {
 } from "@workspace/api-client-react";
 import { apiData } from "@/types/api";
 import type { Agreement, DriverProfile } from "@/types/api";
+import { toTitleCase } from "@/utils/text";
 
 const STEPS = ["Personal", "Address", "Banking", "Fleet", "Documents", "Agreement"];
 
@@ -111,10 +112,6 @@ const sigStyles = StyleSheet.create({
   placeholder: { fontSize: 13, fontFamily: "Inter_400Regular", fontStyle: "italic" },
 });
 
-function toTitleCase(str: string): string {
-  return str.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
-}
-
 function injectDriverData(content: string, profile: DriverProfile | null | undefined): string {
   const rawName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ");
   const name = rawName ? toTitleCase(rawName) : "________________";
@@ -137,7 +134,7 @@ export default function AgreementStep() {
   const agreement = apiData<Agreement>(agreementRes);
   const profile = apiData<DriverProfile>(profileRes);
 
-  const defaultName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ");
+  const defaultName = toTitleCase([profile?.firstName, profile?.lastName].filter(Boolean).join(" "));
   const [legalName, setLegalName] = useState(defaultName);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [scrolledToBottom, setScrolledToBottom] = useState(false);

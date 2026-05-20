@@ -8,6 +8,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useColors } from "@/hooks/useColors";
 import { useGetMyProfile, useUpdateMyProfile } from "@workspace/api-client-react";
+import { toTitleCase } from "@/utils/text";
 import { apiData } from "@/types/api";
 import type { DriverProfile } from "@/types/api";
 
@@ -31,10 +32,10 @@ export default function AddressStep() {
 
   useEffect(() => {
     if (profile) {
-      setStreetAddress(profile.streetAddress ?? "");
-      setSuburb(profile.suburb ?? "");
-      setCity(profile.city ?? "");
-      setProvince(profile.province ?? "");
+      setStreetAddress(toTitleCase(profile.streetAddress));
+      setSuburb(toTitleCase(profile.suburb));
+      setCity(toTitleCase(profile.city));
+      setProvince(toTitleCase(profile.province));
       setPostalCode(profile.postalCode ?? "");
     }
   }, [profile?.id]);
