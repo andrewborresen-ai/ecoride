@@ -52,6 +52,7 @@ const PAD_WIDTH = 320;
 function SignaturePad({
   strokes,
   onStrokesChange,
+  onScrollLock,
   color,
   borderColor,
   backgroundColor,
@@ -59,30 +60,50 @@ function SignaturePad({
 }: {
   strokes: Stroke[];
   onStrokesChange: (s: Stroke[]) => void;
+  onScrollLock?: (locked: boolean) => void;
   color: string;
   borderColor: string;
   backgroundColor: string;
   disabled?: boolean;
 }) {
   const currentStroke = useRef<Point[]>([]);
+  const disabledRef = useRef(disabled);
+  const strokesRef = useRef(strokes);
+  const onStrokesChangeRef = useRef(onStrokesChange);
+  const onScrollLockRef = useRef(onScrollLock);
+
+  useEffect(() => { disabledRef.current = disabled; }, [disabled]);
+  useEffect(() => { strokesRef.current = strokes; }, [strokes]);
+  useEffect(() => { onStrokesChangeRef.current = onStrokesChange; }, [onStrokesChange]);
+  useEffect(() => { onScrollLockRef.current = onScrollLock; }, [onScrollLock]);
 
   const panResponder = useRef(
     PanResponder.create({
-      onStartShouldSetPanResponder: () => !disabled,
-      onMoveShouldSetPanResponder: () => !disabled,
+      onStartShouldSetPanResponder: () => !disabledRef.current,
+      onMoveShouldSetPanResponder: () => !disabledRef.current,
+      onStartShouldSetPanResponderCapture: () => !disabledRef.current,
+      onMoveShouldSetPanResponderCapture: () => !disabledRef.current,
       onPanResponderGrant: (e: GestureResponderEvent) => {
+        if (disabledRef.current) return;
+        onScrollLockRef.current?.(true);
         const { locationX, locationY } = e.nativeEvent;
         currentStroke.current = [{ x: locationX, y: locationY }];
       },
       onPanResponderMove: (e: GestureResponderEvent) => {
+        if (disabledRef.current) return;
         const { locationX, locationY } = e.nativeEvent;
         currentStroke.current = [...currentStroke.current, { x: locationX, y: locationY }];
-        onStrokesChange([...strokes, { points: currentStroke.current }]);
+        onStrokesChangeRef.current([...strokesRef.current, { points: currentStroke.current }]);
       },
       onPanResponderRelease: () => {
+        onScrollLockRef.current?.(false);
         if (currentStroke.current.length > 1) {
-          onStrokesChange([...strokes, { points: currentStroke.current }]);
+          onStrokesChangeRef.current([...strokesRef.current, { points: currentStroke.current }]);
         }
+        currentStroke.current = [];
+      },
+      onPanResponderTerminate: () => {
+        onScrollLockRef.current?.(false);
         currentStroke.current = [];
       },
     })
@@ -93,7 +114,7 @@ function SignaturePad({
   return (
     <View
       style={[sigStyles.pad, { borderColor, backgroundColor, opacity: disabled ? 0.4 : 1 }]}
-      {...(disabled ? {} : panResponder.panHandlers)}
+      {...panResponder.panHandlers}
     >
       {allPaths.length === 0 && (
         <Text style={[sigStyles.placeholder, { color: borderColor }]}>Draw your signature here</Text>
@@ -138,6 +159,7 @@ export default function AgreementStep() {
   const [legalName, setLegalName] = useState(defaultName);
   const [strokes, setStrokes] = useState<Stroke[]>([]);
   const [scrolledToBottom, setScrolledToBottom] = useState(false);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
   const [accepted, setAccepted] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -229,6 +251,7 @@ export default function AgreementStep() {
           <ScrollView
             style={s.scroll}
             contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
+            scrollEnabled={scrollEnabled}
             showsVerticalScrollIndicator
             onMomentumScrollEnd={({ nativeEvent }) => {
               const { layoutMeasurement, contentOffset, contentSize } = nativeEvent;
@@ -297,6 +320,7 @@ export default function AgreementStep() {
                 <SignaturePad
                   strokes={strokes}
                   onStrokesChange={setStrokes}
+                  onScrollLock={setScrollEnabled}
                   color={colors.primary}
                   borderColor={hasDrawnSignature ? colors.primary : colors.border}
                   backgroundColor={colors.card}
