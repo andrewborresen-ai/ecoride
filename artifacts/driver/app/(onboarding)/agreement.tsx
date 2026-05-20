@@ -111,8 +111,13 @@ const sigStyles = StyleSheet.create({
   placeholder: { fontSize: 13, fontFamily: "Inter_400Regular", fontStyle: "italic" },
 });
 
+function toTitleCase(str: string): string {
+  return str.replace(/\w\S*/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());
+}
+
 function injectDriverData(content: string, profile: DriverProfile | null | undefined): string {
-  const name = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ") || "________________";
+  const rawName = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ");
+  const name = rawName ? toTitleCase(rawName) : "________________";
   const id = profile?.idNumber || "________________";
   return content
     .replace(/\{\{contractorName\}\}/g, name)
