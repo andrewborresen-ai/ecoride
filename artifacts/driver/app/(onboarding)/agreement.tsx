@@ -3,8 +3,8 @@ import {
   View, Text, Pressable, StyleSheet, ActivityIndicator, Platform, ScrollView, TextInput,
   PanResponder, GestureResponderEvent,
 } from "react-native";
-import Markdown from "react-native-markdown-display";
 import Svg, { Path } from "react-native-svg";
+import MarkdownRenderer from "@/components/MarkdownRenderer";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
@@ -148,25 +148,6 @@ export default function AgreementStep() {
     [agreement?.content, profile]
   );
 
-  const markdownStyles = useMemo(() => ({
-    body: { fontFamily: "Inter_400Regular", fontSize: 13, color: colors.foreground, lineHeight: 20 },
-    heading1: { fontFamily: "Inter_700Bold", fontSize: 16, color: colors.foreground, marginTop: 16, marginBottom: 8 },
-    heading2: { fontFamily: "Inter_700Bold", fontSize: 14, color: colors.foreground, marginTop: 14, marginBottom: 6 },
-    heading3: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.foreground, marginTop: 10, marginBottom: 4 },
-    strong: { fontFamily: "Inter_700Bold", color: colors.foreground },
-    em: { fontFamily: "Inter_400Regular", fontStyle: "italic" as const, color: colors.mutedForeground },
-    hr: { backgroundColor: colors.border, height: 1, marginVertical: 12 },
-    bullet_list: { marginBottom: 8 },
-    ordered_list: { marginBottom: 8 },
-    list_item: { marginBottom: 4 },
-    paragraph: { marginBottom: 8 },
-    table: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, marginBottom: 12, overflow: "hidden" as const },
-    th: { backgroundColor: colors.muted, padding: 8, fontFamily: "Inter_600SemiBold", fontSize: 12, color: colors.foreground },
-    td: { padding: 8, borderTopWidth: 1, borderTopColor: colors.border, fontFamily: "Inter_400Regular", fontSize: 12, color: colors.foreground },
-    tr: {},
-    code_inline: { fontFamily: "Inter_400Regular", fontSize: 12, backgroundColor: colors.muted, paddingHorizontal: 4, borderRadius: 4 },
-    blockquote: { borderLeftWidth: 3, borderLeftColor: colors.primary, paddingLeft: 12, marginVertical: 8 },
-  }), [colors]);
 
   const handleClearSignature = () => { setStrokes([]); Haptics.selectionAsync(); };
 
@@ -264,9 +245,14 @@ export default function AgreementStep() {
                   ? ` · Effective ${new Date((agreement as Agreement & { effectiveDate?: string }).effectiveDate!).toLocaleDateString("en-ZA")}`
                   : ""}
               </Text>
-              <Markdown style={markdownStyles}>
-                {renderedContent}
-              </Markdown>
+              <MarkdownRenderer
+                content={renderedContent}
+                textColor={colors.foreground}
+                mutedColor={colors.mutedForeground}
+                borderColor={colors.border}
+                primaryColor={colors.primary}
+                mutedBg={colors.muted}
+              />
             </View>
 
             {!scrolledToBottom && (
