@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import {
   View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator,
-  KeyboardAvoidingView, Platform, ScrollView, Alert,
+  KeyboardAvoidingView, Platform, ScrollView,
 } from "react-native";
 import { useSignIn } from "@clerk/clerk-expo";
 import { Link, useRouter } from "expo-router";
@@ -20,16 +20,31 @@ export default function SignInScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleSignIn = async () => {
-    if (!isLoaded || !email || !password) return;
+    setErrorMsg("");
+
+    if (!email.trim() || !password) {
+      setErrorMsg("Please enter your email and password.");
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      return;
+    }
+
+    if (!isLoaded || !signIn) {
+      setErrorMsg("Still loading — please wait a moment and try again.");
+      return;
+    }
+
     try {
       setIsLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const result = await signIn!.create({ identifier: email, password });
+      const result = await signIn.create({ identifier: email.trim(), password });
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
         router.replace("/");
+      } else {
+        setErrorMsg("Sign in could not be completed. Please try again.");
       }
     } catch (err: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
@@ -38,7 +53,7 @@ export default function SignInScreen() {
         clerkErr?.errors?.[0]?.longMessage ??
         clerkErr?.errors?.[0]?.message ??
         "Sign in failed. Please check your credentials.";
-      Alert.alert("Sign In Failed", msg);
+      setErrorMsg(msg);
     } finally {
       setIsLoading(false);
     }
@@ -78,7 +93,7 @@ export default function SignInScreen() {
               placeholder="driver@example.com"
               placeholderTextColor={colors.mutedForeground}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={(v) => { setEmail(v); setErrorMsg(""); }}
               autoCapitalize="none"
               keyboardType="email-address"
               autoComplete="email"
@@ -102,7 +117,7 @@ export default function SignInScreen() {
                 placeholder="••••••••"
                 placeholderTextColor={colors.mutedForeground}
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(v) => { setPassword(v); setErrorMsg(""); }}
                 secureTextEntry={!showPassword}
                 autoComplete="password"
                 returnKeyType="done"
@@ -115,13 +130,20 @@ export default function SignInScreen() {
             </View>
           </View>
 
+          {!!errorMsg && (
+            <View style={[s.errorBox, { backgroundColor: "#FEE2E2", borderColor: "#FECACA" }]}>
+              <Feather name="alert-circle" size={14} color="#B91C1C" />
+              <Text style={s.errorText}>{errorMsg}</Text>
+            </View>
+          )}
+
           <Pressable
             style={({ pressed }) => [
               s.btn,
               { backgroundColor: colors.primary, opacity: pressed || isLoading ? 0.85 : 1 },
             ]}
             onPress={handleSignIn}
-            disabled={isLoading || !email || !password}
+            disabled={isLoading}
             testID="sign-in-btn"
           >
             {isLoading ? (
@@ -164,6 +186,8 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     passwordRow: { flexDirection: "row", alignItems: "center", height: 52, borderWidth: 1.5, borderRadius: 12, paddingHorizontal: 16 },
     passwordInput: { flex: 1, fontSize: 15, fontFamily: "Inter_400Regular" },
     eyeBtn: { padding: 4 },
+    errorBox: { flexDirection: "row", alignItems: "center", gap: 8, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 },
+    errorText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular", color: "#B91C1C" },
     btn: { height: 54, borderRadius: 12, alignItems: "center", justifyContent: "center", marginTop: 8 },
     btnText: { color: "#fff", fontSize: 16, fontFamily: "Inter_600SemiBold" },
     footer: { flexDirection: "row", justifyContent: "center", marginTop: 32 },
