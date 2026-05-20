@@ -39,13 +39,29 @@ export default function SignInScreen() {
     try {
       setIsLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const result = await signIn.create({ identifier: email.trim(), password });
-      if (result.status === "complete") {
-        await setActive({ session: result.createdSessionId });
+
+      // Step 1: initiate with identifier
+      const attempt = await signIn.create({ identifier: email.trim() });
+
+      if (attempt.status === "complete") {
+        await setActive({ session: attempt.createdSessionId });
         router.replace("/");
-      } else {
-        setErrorMsg("Sign in could not be completed. Please try again.");
+        return;
       }
+
+      // Step 2: attempt first factor with password
+      if (attempt.status === "needs_first_factor") {
+        const result = await signIn.attemptFirstFactor({ strategy: "password", password });
+        if (result.status === "complete") {
+          await setActive({ session: result.createdSessionId });
+          router.replace("/");
+        } else {
+          setErrorMsg("Additional verification required. Please contact support.");
+        }
+        return;
+      }
+
+      setErrorMsg("Sign in could not be completed. Please try again.");
     } catch (err: unknown) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       const clerkErr = err as { errors?: { longMessage?: string; message?: string }[] };
