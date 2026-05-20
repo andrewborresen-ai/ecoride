@@ -1,4 +1,4 @@
-import React, { useRef, useState, useMemo } from "react";
+import React, { useRef, useState, useMemo, useEffect } from "react";
 import {
   View, Text, Pressable, StyleSheet, ActivityIndicator, Platform, ScrollView, TextInput,
   PanResponder, GestureResponderEvent,
