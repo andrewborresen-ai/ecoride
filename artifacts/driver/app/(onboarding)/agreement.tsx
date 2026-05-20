@@ -1,8 +1,9 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useMemo } from "react";
 import {
   View, Text, Pressable, StyleSheet, ActivityIndicator, Platform, ScrollView, TextInput,
   PanResponder, GestureResponderEvent,
 } from "react-native";
+import Markdown from "react-native-markdown-display";
 import Svg, { Path } from "react-native-svg";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -110,6 +111,14 @@ const sigStyles = StyleSheet.create({
   placeholder: { fontSize: 13, fontFamily: "Inter_400Regular", fontStyle: "italic" },
 });
 
+function injectDriverData(content: string, profile: DriverProfile | null | undefined): string {
+  const name = [profile?.firstName, profile?.lastName].filter(Boolean).join(" ") || "________________";
+  const id = profile?.idNumber || "________________";
+  return content
+    .replace(/\{\{contractorName\}\}/g, name)
+    .replace(/\{\{idNumber\}\}/g, id);
+}
+
 export default function AgreementStep() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -133,6 +142,31 @@ export default function AgreementStep() {
   const signatureTimestamp = new Date();
 
   const hasDrawnSignature = strokes.length > 0;
+
+  const renderedContent = useMemo(
+    () => (agreement?.content ? injectDriverData(agreement.content, profile) : ""),
+    [agreement?.content, profile]
+  );
+
+  const markdownStyles = useMemo(() => ({
+    body: { fontFamily: "Inter_400Regular", fontSize: 13, color: colors.foreground, lineHeight: 20 },
+    heading1: { fontFamily: "Inter_700Bold", fontSize: 16, color: colors.foreground, marginTop: 16, marginBottom: 8 },
+    heading2: { fontFamily: "Inter_700Bold", fontSize: 14, color: colors.foreground, marginTop: 14, marginBottom: 6 },
+    heading3: { fontFamily: "Inter_600SemiBold", fontSize: 13, color: colors.foreground, marginTop: 10, marginBottom: 4 },
+    strong: { fontFamily: "Inter_700Bold", color: colors.foreground },
+    em: { fontFamily: "Inter_400Regular", fontStyle: "italic" as const, color: colors.mutedForeground },
+    hr: { backgroundColor: colors.border, height: 1, marginVertical: 12 },
+    bullet_list: { marginBottom: 8 },
+    ordered_list: { marginBottom: 8 },
+    list_item: { marginBottom: 4 },
+    paragraph: { marginBottom: 8 },
+    table: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, marginBottom: 12, overflow: "hidden" as const },
+    th: { backgroundColor: colors.muted, padding: 8, fontFamily: "Inter_600SemiBold", fontSize: 12, color: colors.foreground },
+    td: { padding: 8, borderTopWidth: 1, borderTopColor: colors.border, fontFamily: "Inter_400Regular", fontSize: 12, color: colors.foreground },
+    tr: {},
+    code_inline: { fontFamily: "Inter_400Regular", fontSize: 12, backgroundColor: colors.muted, paddingHorizontal: 4, borderRadius: 4 },
+    blockquote: { borderLeftWidth: 3, borderLeftColor: colors.primary, paddingLeft: 12, marginVertical: 8 },
+  }), [colors]);
 
   const handleClearSignature = () => { setStrokes([]); Haptics.selectionAsync(); };
 
@@ -226,11 +260,13 @@ export default function AgreementStep() {
               <Text style={[s.agreementTitle, { color: colors.foreground }]}>{agreement.title}</Text>
               <Text style={[s.agreementMeta, { color: colors.mutedForeground }]}>
                 Version {agreement.version}
-                {agreement.effectiveDate
-                  ? ` · Effective ${new Date(agreement.effectiveDate).toLocaleDateString("en-ZA")}`
+                {(agreement as Agreement & { effectiveDate?: string }).effectiveDate
+                  ? ` · Effective ${new Date((agreement as Agreement & { effectiveDate?: string }).effectiveDate!).toLocaleDateString("en-ZA")}`
                   : ""}
               </Text>
-              <Text style={[s.agreementContent, { color: colors.foreground }]}>{agreement.content}</Text>
+              <Markdown style={markdownStyles}>
+                {renderedContent}
+              </Markdown>
             </View>
 
             {!scrolledToBottom && (
@@ -358,7 +394,6 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     agreementBox: { borderRadius: 14, borderWidth: 1, padding: 16, marginBottom: 12 },
     agreementTitle: { fontSize: 16, fontFamily: "Inter_700Bold", marginBottom: 4 },
     agreementMeta: { fontSize: 12, fontFamily: "Inter_400Regular", marginBottom: 12 },
-    agreementContent: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 20 },
     scrollHint: { flexDirection: "row", alignItems: "center", gap: 8, padding: 12, borderRadius: 10, marginBottom: 8 },
     scrollHintText: { fontSize: 13, fontFamily: "Inter_400Regular" },
     signingSection: { gap: 4 },

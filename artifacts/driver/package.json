@@ -12,7 +12,8 @@
   "dependencies": {
     "@clerk/clerk-expo": "^2.10.2",
     "expo-auth-session": "~7.0.11",
-    "expo-secure-store": "~15.0.8"
+    "expo-secure-store": "~15.0.8",
+    "react-native-markdown-display": "^7.0.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
