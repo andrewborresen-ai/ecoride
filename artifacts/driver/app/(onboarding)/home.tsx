@@ -68,7 +68,7 @@ export default function OnboardingHome() {
 
   const profileComplete = isProfileComplete(profile);
   const docsComplete = areDocsComplete(docs);
-  const agreementComplete = !!signature;
+  const agreementComplete = !!signature && docsComplete;
   const allComplete = profileComplete && docsComplete && agreementComplete;
 
   const steps: Step[] = [
