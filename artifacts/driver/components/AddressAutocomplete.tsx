@@ -17,12 +17,10 @@ export interface AddressComponents {
 }
 
 interface Prediction {
-  place_id: string;
-  description: string;
-  structured_formatting: {
-    main_text: string;
-    secondary_text: string;
-  };
+  placeId: string;
+  mainText: string;
+  secondaryText: string;
+  fullText: string;
 }
 
 interface Props {
@@ -31,7 +29,6 @@ interface Props {
   onChangeText: (text: string) => void;
   onSelectAddress: (components: AddressComponents) => void;
   placeholder?: string;
-  errorMsg?: string;
 }
 
 export function AddressAutocomplete({
@@ -40,7 +37,6 @@ export function AddressAutocomplete({
   onChangeText,
   onSelectAddress,
   placeholder = "Start typing your address…",
-  errorMsg,
 }: Props) {
   const colors = useColors();
   const [predictions, setPredictions] = useState<Prediction[]>([]);
@@ -56,16 +52,27 @@ export function AddressAutocomplete({
     }
     setLoading(true);
     try {
-      const url =
-        `https://maps.googleapis.com/maps/api/place/autocomplete/json` +
-        `?input=${encodeURIComponent(input)}` +
-        `&types=address` +
-        `&components=country:za` +
-        `&key=${GOOGLE_API_KEY}`;
-      const res = await fetch(url);
+      const res = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Goog-Api-Key": GOOGLE_API_KEY,
+        },
+        body: JSON.stringify({
+          input,
+          includedRegionCodes: ["za"],
+          includedPrimaryTypes: ["street_address", "premise", "subpremise", "route"],
+        }),
+      });
       const data = await res.json();
-      if (data.status === "OK") {
-        setPredictions(data.predictions ?? []);
+      if (data.suggestions?.length) {
+        const preds: Prediction[] = data.suggestions.map((s: any) => ({
+          placeId: s.placePrediction.placeId,
+          mainText: s.placePrediction.structuredFormat.mainText.text,
+          secondaryText: s.placePrediction.structuredFormat.secondaryText?.text ?? "",
+          fullText: s.placePrediction.text.text,
+        }));
+        setPredictions(preds);
         setShowDropdown(true);
       } else {
         setPredictions([]);
@@ -85,18 +92,16 @@ export function AddressAutocomplete({
   };
 
   const fetchPlaceDetails = async (placeId: string): Promise<AddressComponents> => {
-    const url =
-      `https://maps.googleapis.com/maps/api/place/details/json` +
-      `?place_id=${placeId}` +
-      `&fields=address_components` +
-      `&key=${GOOGLE_API_KEY}`;
-    const res = await fetch(url);
+    const res = await fetch(
+      `https://places.googleapis.com/v1/places/${placeId}?fields=addressComponents`,
+      { headers: { "X-Goog-Api-Key": GOOGLE_API_KEY } }
+    );
     const data = await res.json();
-    const comps: { long_name: string; short_name: string; types: string[] }[] =
-      data.result?.address_components ?? [];
+    const comps: { longText: string; shortText: string; types: string[] }[] =
+      data.addressComponents ?? [];
 
     const get = (...types: string[]) =>
-      comps.find((c) => types.some((t) => c.types.includes(t)))?.long_name ?? "";
+      comps.find((c) => types.some((t) => c.types.includes(t)))?.longText ?? "";
 
     const streetNumber = get("street_number");
     const route = get("route");
@@ -113,10 +118,10 @@ export function AddressAutocomplete({
     Keyboard.dismiss();
     setShowDropdown(false);
     setPredictions([]);
-    onChangeText(prediction.description);
+    onChangeText(prediction.mainText);
     setLoading(true);
     try {
-      const components = await fetchPlaceDetails(prediction.place_id);
+      const components = await fetchPlaceDetails(prediction.placeId);
       onSelectAddress(components);
     } catch {
     } finally {
@@ -129,7 +134,7 @@ export function AddressAutocomplete({
   return (
     <View style={s.wrapper}>
       <Text style={[s.label, { color: colors.foreground }]}>{label}</Text>
-      <View style={[s.inputRow, { borderColor: errorMsg ? "#EF4444" : colors.border, backgroundColor: colors.card }]}>
+      <View style={[s.inputRow, { borderColor: colors.border, backgroundColor: colors.card }]}>
         <Feather name="map-pin" size={16} color={colors.mutedForeground} style={{ marginLeft: 14 }} />
         <TextInput
           style={[s.input, { color: colors.foreground }]}
@@ -152,15 +157,12 @@ export function AddressAutocomplete({
           </Pressable>
         )}
       </View>
-      {!!errorMsg && (
-        <Text style={s.errorText}>{errorMsg}</Text>
-      )}
 
       {showDropdown && predictions.length > 0 && (
         <View style={[s.dropdown, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <FlatList
             data={predictions}
-            keyExtractor={(p) => p.place_id}
+            keyExtractor={(p) => p.placeId}
             keyboardShouldPersistTaps="handled"
             scrollEnabled={false}
             ItemSeparatorComponent={() => <View style={[s.separator, { backgroundColor: colors.border }]} />}
@@ -169,14 +171,16 @@ export function AddressAutocomplete({
                 style={({ pressed }) => [s.suggestion, { backgroundColor: pressed ? colors.muted : "transparent" }]}
                 onPress={() => handleSelect(item)}
               >
-                <Feather name="map-pin" size={13} color={colors.primary} style={{ marginTop: 1 }} />
+                <Feather name="map-pin" size={13} color={colors.primary} style={{ marginTop: 2 }} />
                 <View style={{ flex: 1 }}>
                   <Text style={[s.mainText, { color: colors.foreground }]} numberOfLines={1}>
-                    {item.structured_formatting.main_text}
+                    {item.mainText}
                   </Text>
-                  <Text style={[s.secondaryText, { color: colors.mutedForeground }]} numberOfLines={1}>
-                    {item.structured_formatting.secondary_text}
-                  </Text>
+                  {!!item.secondaryText && (
+                    <Text style={[s.secondaryText, { color: colors.mutedForeground }]} numberOfLines={1}>
+                      {item.secondaryText}
+                    </Text>
+                  )}
                 </View>
               </Pressable>
             )}
@@ -205,7 +209,6 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
       fontFamily: "Inter_400Regular",
       paddingVertical: 0,
     },
-    errorText: { fontSize: 12, fontFamily: "Inter_400Regular", color: "#EF4444", marginTop: 4 },
     dropdown: {
       position: "absolute",
       top: 82,
