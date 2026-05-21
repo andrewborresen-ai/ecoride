@@ -19,7 +19,7 @@ import { toTitleCase } from "@/utils/text";
 import { apiData } from "@/types/api";
 import type { DriverProfile } from "@/types/api";
 
-const STEPS = ["Personal", "Address", "Banking", "Fleet", "Documents", "Agreement"];
+const STEPS = ["Personal", "Address", "Banking", "Fleet", "Agreement"];
 
 type Colors = ReturnType<typeof import("@/hooks/useColors").useColors>;
 
@@ -100,7 +100,7 @@ export default function PersonalStep() {
             <View key={step} style={[s.progressDot, { backgroundColor: i === 0 ? colors.primary : colors.border }]} />
           ))}
         </View>
-        <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>Step 1 of 6</Text>
+        <Text style={[s.stepLabel, { color: colors.mutedForeground }]}>Step 1 of 5</Text>
         <Text style={[s.stepTitle, { color: colors.foreground }]}>Personal Info</Text>
       </View>
 
