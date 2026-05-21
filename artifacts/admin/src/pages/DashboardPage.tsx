@@ -237,7 +237,7 @@ export default function DashboardPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
+                    <TableHead className="pl-6">Name</TableHead>
                     <TableHead>Fleet</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Date</TableHead>
@@ -246,7 +246,7 @@ export default function DashboardPage() {
                 <TableBody>
                   {recentDrivers.map((driver) => (
                     <TableRow key={driver.id}>
-                      <TableCell className="font-medium">
+                      <TableCell className="font-medium pl-6">
                         <Link href={`/drivers/${driver.id}`} className="text-[#3DB324] hover:underline">
                           {driver.firstName} {driver.lastName}
                         </Link>
@@ -289,7 +289,7 @@ export default function DashboardPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Title</TableHead>
+                    <TableHead className="pl-6">Title</TableHead>
                     <TableHead>Time</TableHead>
                     <TableHead>Fill Rate</TableHead>
                   </TableRow>
@@ -299,7 +299,7 @@ export default function DashboardPage() {
                     const fillPct = shift.capacity ? Math.round(((shift.confirmedCount ?? 0) / shift.capacity) * 100) : 0;
                     return (
                       <TableRow key={shift.id}>
-                        <TableCell className="font-medium">
+                        <TableCell className="font-medium pl-6">
                           <Link href={`/shifts/${shift.id}`} className="text-[#3DB324] hover:underline">
                             {shift.title}
                           </Link>
