@@ -15,9 +15,10 @@ import {
   useSignAgreement,
   useGetMyProfile,
   useRequestDocumentUploadUrl,
+  useGetMyAgreementSignature,
 } from "@workspace/api-client-react";
 import { apiData } from "@/types/api";
-import type { Agreement, DriverProfile } from "@/types/api";
+import type { Agreement, DriverProfile, AgreementSignature } from "@/types/api";
 import { toTitleCase } from "@/utils/text";
 
 const STEPS = ["Personal", "Address", "Banking", "Fleet", "Documents", "Agreement"];
@@ -149,11 +150,13 @@ export default function AgreementStep() {
 
   const { data: agreementRes, isLoading: loadingAgreement } = useGetActiveAgreement();
   const { data: profileRes } = useGetMyProfile();
+  const { data: sigRes, isLoading: loadingSig } = useGetMyAgreementSignature();
   const { mutateAsync: signAgreement } = useSignAgreement();
   const { mutateAsync: requestUploadUrl } = useRequestDocumentUploadUrl();
 
   const agreement = apiData<Agreement>(agreementRes);
   const profile = apiData<DriverProfile>(profileRes);
+  const existingSig = apiData<AgreementSignature>(sigRes);
 
   const defaultName = toTitleCase([profile?.firstName, profile?.lastName].filter(Boolean).join(" "));
   const [legalName, setLegalName] = useState(defaultName);
@@ -244,8 +247,51 @@ export default function AgreementStep() {
         <Text style={[s.stepTitle, { color: colors.foreground }]}>Driver Agreement</Text>
       </View>
 
-      {loadingAgreement ? (
+      {loadingAgreement || loadingSig ? (
         <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
+      ) : existingSig ? (
+        <ScrollView
+          style={s.scroll}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={[s.signedCard, { backgroundColor: colors.card, borderColor: colors.primary + "40" }]}>
+            <View style={[s.signedIconWrap, { backgroundColor: colors.primary + "15" }]}>
+              <Feather name="check-circle" size={32} color={colors.primary} />
+            </View>
+            <Text style={[s.signedTitle, { color: colors.foreground }]}>Agreement Signed</Text>
+            <Text style={[s.signedSub, { color: colors.mutedForeground }]}>
+              You have already signed this agreement. A copy is kept on file.
+            </Text>
+            <View style={[s.signedDetail, { borderColor: colors.border }]}>
+              <View style={s.signedRow}>
+                <Text style={[s.signedRowLabel, { color: colors.mutedForeground }]}>Signed as</Text>
+                <Text style={[s.signedRowValue, { color: colors.foreground }]}>{existingSig.legalName}</Text>
+              </View>
+              <View style={[s.signedDivider, { backgroundColor: colors.border }]} />
+              <View style={s.signedRow}>
+                <Text style={[s.signedRowLabel, { color: colors.mutedForeground }]}>Date signed</Text>
+                <Text style={[s.signedRowValue, { color: colors.foreground }]}>
+                  {new Date(existingSig.signedAt).toLocaleDateString("en-ZA", {
+                    day: "numeric", month: "long", year: "numeric",
+                  })}
+                </Text>
+              </View>
+              <View style={[s.signedDivider, { backgroundColor: colors.border }]} />
+              <View style={s.signedRow}>
+                <Text style={[s.signedRowLabel, { color: colors.mutedForeground }]}>Version</Text>
+                <Text style={[s.signedRowValue, { color: colors.foreground }]}>{existingSig.agreementVersion}</Text>
+              </View>
+            </View>
+          </View>
+          <Pressable
+            style={({ pressed }) => [s.signBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1, marginTop: 8 }]}
+            onPress={() => router.push("/(onboarding)/home")}
+          >
+            <Feather name="arrow-right" size={18} color="#fff" />
+            <Text style={[s.signBtnText, { color: "#fff" }]}>Back to Review</Text>
+          </Pressable>
+        </ScrollView>
       ) : agreement ? (
         <>
           <ScrollView
@@ -426,4 +472,13 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     emptyState: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10 },
     emptyText: { fontSize: 16, fontFamily: "Inter_600SemiBold" },
     emptyBody: { fontSize: 14, fontFamily: "Inter_400Regular" },
+    signedCard: { borderRadius: 16, borderWidth: 1.5, padding: 24, alignItems: "center", gap: 12, marginTop: 8 },
+    signedIconWrap: { width: 64, height: 64, borderRadius: 32, alignItems: "center", justifyContent: "center" },
+    signedTitle: { fontSize: 20, fontFamily: "Inter_700Bold", textAlign: "center" },
+    signedSub: { fontSize: 14, fontFamily: "Inter_400Regular", textAlign: "center", lineHeight: 20 },
+    signedDetail: { width: "100%", borderWidth: 1, borderRadius: 12, overflow: "hidden", marginTop: 8 },
+    signedRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12 },
+    signedRowLabel: { fontSize: 13, fontFamily: "Inter_400Regular" },
+    signedRowValue: { fontSize: 13, fontFamily: "Inter_600SemiBold", flexShrink: 1, textAlign: "right", marginLeft: 12 },
+    signedDivider: { height: 1 },
   });

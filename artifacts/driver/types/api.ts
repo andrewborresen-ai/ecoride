@@ -149,6 +149,16 @@ export interface Agreement {
   effectiveDate: string;
 }
 
+export interface AgreementSignature {
+  id: string;
+  agreementId: string;
+  agreementVersion: string;
+  legalName: string;
+  signedAt: string;
+  signatureObjectPath: string | null;
+  status: string;
+}
+
 export function apiData<T>(response: unknown): T | null {
   if (!response || typeof response !== "object") return null;
   const envelope = response as ApiEnvelope<T>;
