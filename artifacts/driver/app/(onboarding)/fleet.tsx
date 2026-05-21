@@ -51,7 +51,7 @@ export default function FleetStep() {
         data: {
           fleetType,
           boltDriverId: boltDriverId || undefined,
-          boltDeclarationAccepted: boltAccepted ? new Date().toISOString() : undefined,
+          boltDeclarationAccepted: boltAccepted ? true : undefined,
         },
       });
       router.push("/(onboarding)/documents");
