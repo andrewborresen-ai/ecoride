@@ -47,6 +47,7 @@ externalPort = 3000
 
 [userenv.shared]
 EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_cnVsaW5nLWVhZ2xlLTE3LmNsZXJrLmFjY291bnRzLmRldiQ"
+EXPO_PUBLIC_GOOGLE_MAPS_API_KEY = "AIzaSyAKr_86UuJrjhIH0w0CvdxDquHamlmJkZg"
 
 [nix]
 channel = "stable-25_05"

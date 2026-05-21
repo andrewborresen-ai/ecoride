@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import {
-  View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, ScrollView, Platform,
+  View, Text, TextInput, Pressable, StyleSheet, ActivityIndicator, Platform,
+  KeyboardAvoidingView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -11,8 +12,20 @@ import { useGetMyProfile, useUpdateMyProfile } from "@workspace/api-client-react
 import { toTitleCase } from "@/utils/text";
 import { apiData } from "@/types/api";
 import type { DriverProfile } from "@/types/api";
+import { AddressAutocomplete } from "@/components/AddressAutocomplete";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
 const STEPS = ["Personal", "Address", "Banking", "Fleet", "Documents", "Agreement"];
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const colors = useColors();
+  return (
+    <View style={{ gap: 6, marginBottom: 16 }}>
+      <Text style={{ fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground }}>{label}</Text>
+      {children}
+    </View>
+  );
+}
 
 export default function AddressStep() {
   const colors = useColors();
@@ -22,6 +35,7 @@ export default function AddressStep() {
   const { mutateAsync: updateProfile } = useUpdateMyProfile();
   const profile = apiData<DriverProfile>(profileRes);
 
+  const [searchText, setSearchText] = useState("");
   const [streetAddress, setStreetAddress] = useState("");
   const [suburb, setSuburb] = useState("");
   const [city, setCity] = useState("");
@@ -32,13 +46,25 @@ export default function AddressStep() {
 
   useEffect(() => {
     if (profile) {
-      setStreetAddress(toTitleCase(profile.streetAddress));
+      const street = toTitleCase(profile.streetAddress);
+      setStreetAddress(street);
+      setSearchText(street);
       setSuburb(toTitleCase(profile.suburb));
       setCity(toTitleCase(profile.city));
       setProvince(toTitleCase(profile.province));
       setPostalCode(profile.postalCode ?? "");
     }
   }, [profile?.id]);
+
+  const handleSelectAddress = (components: { streetAddress: string; suburb: string; city: string; province: string; postalCode: string }) => {
+    setStreetAddress(toTitleCase(components.streetAddress));
+    setSearchText(toTitleCase(components.streetAddress));
+    setSuburb(toTitleCase(components.suburb));
+    setCity(toTitleCase(components.city));
+    setProvince(toTitleCase(components.province));
+    setPostalCode(components.postalCode);
+    setErrorMsg("");
+  };
 
   const handleNext = async () => {
     setErrorMsg("");
@@ -65,14 +91,6 @@ export default function AddressStep() {
   const s = makeStyles(colors);
   const topPad = insets.top + (Platform.OS === "web" ? 67 : 16);
 
-  const fields: { label: string; value: string; onChange: (v: string) => void; placeholder: string; keyboard?: "number-pad" }[] = [
-    { label: "Street Address *", value: streetAddress, onChange: setStreetAddress, placeholder: "123 Main Street" },
-    { label: "Suburb", value: suburb, onChange: setSuburb, placeholder: "Sandton" },
-    { label: "City *", value: city, onChange: setCity, placeholder: "Johannesburg" },
-    { label: "Province *", value: province, onChange: setProvince, placeholder: "Gauteng" },
-    { label: "Postal Code", value: postalCode, onChange: setPostalCode, placeholder: "2001", keyboard: "number-pad" },
-  ];
-
   return (
     <View style={[s.root, { backgroundColor: colors.background }]}>
       <View style={[s.header, { paddingTop: topPad }]}>
@@ -88,22 +106,64 @@ export default function AddressStep() {
         <Text style={[s.stepTitle, { color: colors.foreground }]}>Home Address</Text>
       </View>
 
-      <ScrollView style={s.scroll} contentContainerStyle={[s.form, { paddingBottom: insets.bottom + 100 }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        {fields.map(({ label, value, onChange, placeholder, keyboard }) => (
-          <View key={label} style={{ gap: 6, marginBottom: 16 }}>
-            <Text style={{ fontSize: 14, fontFamily: "Inter_500Medium", color: colors.foreground }}>{label}</Text>
-            <TextInput
-              style={[s.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.foreground }]}
-              placeholder={placeholder}
-              placeholderTextColor={colors.mutedForeground}
-              value={value}
-              onChangeText={(v) => { onChange(v); setErrorMsg(""); }}
-              keyboardType={keyboard ?? "default"}
-              autoCapitalize="words"
-            />
-          </View>
-        ))}
-      </ScrollView>
+      <KeyboardAwareScrollViewCompat
+        style={s.scroll}
+        contentContainerStyle={[s.form, { paddingBottom: insets.bottom + 120 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <AddressAutocomplete
+          label="Street Address *"
+          value={searchText}
+          onChangeText={(t) => { setSearchText(t); setStreetAddress(t); setErrorMsg(""); }}
+          onSelectAddress={handleSelectAddress}
+          placeholder="Start typing your street address…"
+        />
+
+        <Field label="Suburb">
+          <TextInput
+            style={[s.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.foreground }]}
+            placeholder="Sandton"
+            placeholderTextColor={colors.mutedForeground}
+            value={suburb}
+            onChangeText={(v) => { setSuburb(v); setErrorMsg(""); }}
+            autoCapitalize="words"
+          />
+        </Field>
+
+        <Field label="City *">
+          <TextInput
+            style={[s.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.foreground }]}
+            placeholder="Johannesburg"
+            placeholderTextColor={colors.mutedForeground}
+            value={city}
+            onChangeText={(v) => { setCity(v); setErrorMsg(""); }}
+            autoCapitalize="words"
+          />
+        </Field>
+
+        <Field label="Province *">
+          <TextInput
+            style={[s.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.foreground }]}
+            placeholder="Gauteng"
+            placeholderTextColor={colors.mutedForeground}
+            value={province}
+            onChangeText={(v) => { setProvince(v); setErrorMsg(""); }}
+            autoCapitalize="words"
+          />
+        </Field>
+
+        <Field label="Postal Code">
+          <TextInput
+            style={[s.input, { borderColor: colors.border, backgroundColor: colors.card, color: colors.foreground }]}
+            placeholder="2001"
+            placeholderTextColor={colors.mutedForeground}
+            value={postalCode}
+            onChangeText={(v) => { setPostalCode(v); setErrorMsg(""); }}
+            keyboardType="number-pad"
+          />
+        </Field>
+      </KeyboardAwareScrollViewCompat>
 
       <View style={[s.footer, { paddingBottom: insets.bottom + (Platform.OS === "web" ? 24 : 16) }]}>
         {!!errorMsg && (
