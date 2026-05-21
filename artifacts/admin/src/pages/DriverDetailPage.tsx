@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRoute } from "wouter";
 import {
   useAdminGetDriver,
@@ -23,8 +23,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useAuth } from "@clerk/react";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, RefreshCcw, FileSignature, Clock, DollarSign, Loader2 } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, AlertTriangle, RefreshCcw, FileSignature, Clock, DollarSign, Loader2, ExternalLink } from "lucide-react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { useAdminApi } from "@/lib/adminApi";
@@ -58,6 +59,15 @@ interface DriverDoc {
   status: string;
   objectPath?: string;
   reviewNotes?: string;
+  mimeType?: string;
+  fileName?: string;
+}
+
+interface ViewDocState {
+  doc: DriverDoc;
+  blobUrl: string | null;
+  loading: boolean;
+  error: string | null;
 }
 
 interface AssignmentItem {
@@ -95,7 +105,40 @@ export default function DriverDetailPage() {
   const [notes, setNotes] = useState<string>("");
   const [notesSaving, setNotesSaving] = useState(false);
   const [retryingTelematics, setRetryingTelematics] = useState(false);
+  const [viewDocState, setViewDocState] = useState<ViewDocState | null>(null);
+  const blobUrlRef = useRef<string | null>(null);
+  const { getToken } = useAuth();
   const { getDriverNotes, patchDriverNotes, retryTelematics } = useAdminApi();
+
+  const handleViewDoc = useCallback(async (doc: DriverDoc) => {
+    if (!doc.objectPath) return;
+    setViewDocState({ doc, blobUrl: null, loading: true, error: null });
+    try {
+      const token = await getToken();
+      let fetchPath = "";
+      if (doc.objectPath.startsWith("/objects/")) {
+        fetchPath = `/storage/objects/${doc.objectPath.slice("/objects/".length)}`;
+      } else {
+        fetchPath = `/storage/public-objects/${doc.objectPath}`;
+      }
+      const res = await fetch(fetchPath, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`Failed to load document (${res.status})`);
+      const blob = await res.blob();
+      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
+      const url = URL.createObjectURL(blob);
+      blobUrlRef.current = url;
+      setViewDocState({ doc, blobUrl: url, loading: false, error: null });
+    } catch (err) {
+      setViewDocState({ doc, blobUrl: null, loading: false, error: (err as Error).message });
+    }
+  }, [getToken]);
+
+  const closeViewDoc = useCallback(() => {
+    if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
+    setViewDocState(null);
+  }, []);
 
   const loadNotes = useCallback(async () => {
     try { const res = await getDriverNotes(driverId); setNotes((res?.data as { notes?: string } | undefined)?.notes ?? ""); } catch { /* noop */ }
@@ -431,7 +474,7 @@ export default function DriverDetailPage() {
                       </div>
                       <div className="flex gap-2">
                         {doc.objectPath && (
-                          <Button size="sm" variant="outline" onClick={() => window.open(doc.objectPath, "_blank")}>View</Button>
+                          <Button size="sm" variant="outline" onClick={() => handleViewDoc(doc)}>View</Button>
                         )}
                         {doc.status !== "verified" && (
                           <Button size="sm" className="bg-[#3DB324] hover:bg-[#329b1d]" onClick={() => handleVerifyDoc(doc.id, "verified")} disabled={verifyDoc.isPending}>
@@ -582,6 +625,60 @@ export default function DriverDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Document Viewer Modal */}
+      <Dialog open={!!viewDocState} onOpenChange={(open) => { if (!open) closeViewDoc(); }}>
+        <DialogContent className="max-w-3xl w-full">
+          <DialogHeader>
+            <DialogTitle className="capitalize">
+              {viewDocState?.doc.documentType.replace(/_/g, " ")}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="flex items-center justify-center min-h-[300px] max-h-[70vh] overflow-auto rounded-lg bg-gray-50 border">
+            {viewDocState?.loading && (
+              <div className="flex flex-col items-center gap-3 text-gray-400">
+                <Loader2 className="h-8 w-8 animate-spin" />
+                <span className="text-sm">Loading document…</span>
+              </div>
+            )}
+            {viewDocState?.error && (
+              <div className="flex flex-col items-center gap-2 text-red-500 p-8 text-center">
+                <XCircle className="h-8 w-8" />
+                <p className="text-sm font-medium">Could not load document</p>
+                <p className="text-xs text-gray-400">{viewDocState.error}</p>
+              </div>
+            )}
+            {viewDocState?.blobUrl && (
+              viewDocState.doc.mimeType === "application/pdf" ? (
+                <iframe
+                  src={viewDocState.blobUrl}
+                  className="w-full h-[65vh] rounded-lg"
+                  title={viewDocState.doc.documentType}
+                />
+              ) : (
+                <img
+                  src={viewDocState.blobUrl}
+                  alt={viewDocState.doc.documentType}
+                  className="max-w-full max-h-[65vh] object-contain rounded-lg"
+                />
+              )
+            )}
+          </div>
+
+          <DialogFooter className="gap-2">
+            {viewDocState?.blobUrl && (
+              <a href={viewDocState.blobUrl} download={viewDocState.doc.fileName ?? viewDocState.doc.documentType}>
+                <Button variant="outline" size="sm">
+                  <ExternalLink className="h-4 w-4 mr-1.5" />
+                  Download
+                </Button>
+              </a>
+            )}
+            <Button variant="outline" size="sm" onClick={closeViewDoc}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
