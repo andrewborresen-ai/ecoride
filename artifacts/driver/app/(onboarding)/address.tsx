@@ -15,7 +15,7 @@ import type { DriverProfile } from "@/types/api";
 import { AddressAutocomplete } from "@/components/AddressAutocomplete";
 import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 
-const STEPS = ["Personal", "Address", "Banking", "Fleet", "Agreement"];
+const STEPS = ["Personal", "Address", "Banking", "Fleet", "Documents", "Agreement"];
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   const colors = useColors();
