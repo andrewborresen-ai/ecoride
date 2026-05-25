@@ -1,0 +1,18 @@
+Week/Day;Driver;Period start;Period end;Hours;Minutes;Hourly Rate (R);Shifts;Rental/Shift (R);Hours (Decimal);Rental Total (R);Gross Earnings (R);Net Pay (R);Trips;Bonus;Net After Bonus;Cash Received;Cash still outstanding;Comments;
+;;;;;;;;;;;;;;;;;;;
+Weekly Total;ANDILE KHUMALO;18 May;25 May;19;40;55;6;350;19,67;100; R	1 081,67 ; R	981,67 ;58; R	-   ; R	981,67 ; R	-   ; R	-   ;;
+Day;ANDILE KHUMALO;18 May;19 May;9;35;55;1;50;9,58;50; R	527,08 ; R	477,08 ;27;;; R	-   ;;deducted 50 minutes offline times .;
+Day;ANDILE KHUMALO;19 May;20 May;10;5;55;1;50;10,08;50; R	554,58 ; R	504,58 ;31;;; R	-   ;;;
+Day;ANDILE KHUMALO;20 May;21 May;;;55;1;50;0,00;; R	-   ; R	-   ;;;; R	-   ;;;
+Day;ANDILE KHUMALO;21 May;22 May;;;45;1;50;0,00;; R	-   ; R	-   ;;;; R	-   ;;;
+Day;ANDILE KHUMALO;22 May;23 May;;;55;1;50;0,00;; R	-   ; R	-   ;;;; R	-   ;;;
+Day;ANDILE KHUMALO;23 May;24 May;;;45;1;50;0,00;; R	-   ; R	-   ;;;; R	-   ;;;
+Day;ANDILE KHUMALO;24 May;25 May;;;45;0;50;0,00;; R	-   ; R	-   ;;;; R	-   ;;;
+Weekly Total;ANYWELL MOYO;18 May;25 May;20;109;45;6;350;21,82;100; R	1 091,25 ; R	991,25 ;44; R	-   ; R	991,25 ; R	-   ; R	-   ;;
+Day;ANYWELL MOYO;18 May;19 May;10;52;45;1;50;10,87;50; R	489,00 ; R	439,00 ;17;;                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     ; R	-   ;;;
+Day;ANYWELL MOYO;19 May;20 May;10;57;55;1;50;10,95;50; R	602,25 ; R	552,25 ;27;;; R	-   ;;;
+Day;ANYWELL MOYO;20 May;21 May;;;45;0;50;0,00;; R	-   ; R	-   ;;;; R	-   ;;;
+Day;ANYWELL MOYO;21 May;22 May;;;45;1;50;0,00;; R	-   ; R	-   ;;;; R	-   ;;;
+Day;ANYWELL MOYO;22 May;23 May;;;45;1;50;0,00;; R	-   ; R	-   ;;;; R	-   ;;;
+Day;ANYWELL MOYO;23 May;24 May;;;45;1;50;0,00;; R	-   ; R	-   ;;;; R	-   ;;;
+Day;ANYWELL MOYO;24 May;25 May;;;65;1;50;0,00;; R	-   ; R	-   ;;;; R	-   ;;;
