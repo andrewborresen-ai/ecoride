@@ -246,6 +246,15 @@ router.post("/v1/admin/earnings/import-csv", requireAdmin, async (req: Authentic
   );
 });
 
+const ShiftDetailSchema = z.object({
+  date: z.string(),
+  grossCents: z.number().int().default(0),
+  rentalCents: z.number().int().default(0),
+  netCents: z.number().int().default(0),
+  trips: z.number().int().default(0),
+  hours: z.number().default(0),
+});
+
 const PayrollRowSchema = z.object({
   driverName: z.string().min(1),
   resolvedProfileId: z.string().optional(),
@@ -255,6 +264,7 @@ const PayrollRowSchema = z.object({
   penaltiesCents: z.number().int().min(0).default(0),
   netAmountCents: z.number().int().min(0).default(0),
   tripCount: z.number().int().min(0).default(0),
+  shiftDetails: z.array(ShiftDetailSchema).optional(),
 });
 
 const ImportPayrollBody = z.object({
@@ -335,6 +345,7 @@ router.post("/v1/admin/earnings/import-payroll-sheet", requireAdmin, async (req:
           netAmountCents: row.netAmountCents,
           tripCount: row.tripCount,
           notes: null,
+          shiftDetails: row.shiftDetails ?? null,
           status: "draft",
           createdBy: req.userId!,
         })

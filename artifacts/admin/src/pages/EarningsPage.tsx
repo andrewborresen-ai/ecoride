@@ -20,9 +20,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Upload, Eye, Download, AlertCircle, Check, Pencil, RotateCcw, FileSpreadsheet } from "lucide-react";
+import { Plus, Upload, Eye, Download, AlertCircle, Check, Pencil, RotateCcw, FileSpreadsheet, ChevronDown, ChevronRight } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+
+interface ShiftDetail {
+  date: string;
+  grossCents: number;
+  rentalCents: number;
+  netCents: number;
+  trips: number;
+  hours: number;
+}
 
 interface EarningsItem {
   id: string;
@@ -36,6 +45,7 @@ interface EarningsItem {
   netAmountCents?: number;
   tripCount?: number;
   notes?: string;
+  shiftDetails?: ShiftDetail[] | null;
   status: string;
 }
 
@@ -53,6 +63,7 @@ interface PayrollRow {
   penaltiesCents: number;
   netAmountCents: number;
   tripCount: number;
+  shiftDetails: ShiftDetail[];
 }
 
 interface DbDriverProfile {
@@ -127,30 +138,64 @@ function parsePayrollSheet(text: string): PayrollRow[] {
     return c[0]?.trim().toLowerCase() === "driver" && c.some((x) => /gross/i.test(x));
   });
   if (headerIdx < 0) return [];
+
   const rows: PayrollRow[] = [];
+  let currentDriver: Omit<PayrollRow, "shiftDetails"> | null = null;
+  let currentShifts: ShiftDetail[] = [];
+
+  const commitDriver = () => {
+    if (currentDriver) {
+      rows.push({ ...currentDriver, shiftDetails: currentShifts });
+      currentDriver = null;
+      currentShifts = [];
+    }
+  };
+
   for (let i = headerIdx + 1; i < lines.length; i++) {
     const cols = splitCsvRowPayroll(lines[i]);
     const nameCell = (cols[0] || "").trim();
-    if (!nameCell || isPayrollDateRow(nameCell)) continue;
+
+    if (!nameCell) continue;
+
+    if (isPayrollDateRow(nameCell)) {
+      if (currentDriver) {
+        const gross = parseCurrencyZAR(cols[8] || "");
+        const rentalCents = parseCurrencyZAR(cols[7] || "");
+        const netCents = parseCurrencyZAR(cols[9] || "");
+        const trips = Math.max(0, parseInt((cols[10] || "").replace(/[^0-9]/g, "") || "0", 10));
+        const hours = parseFloat((cols[6] || "").replace(/[^0-9.]/g, "") || "0") || 0;
+        if (gross > 0 || trips > 0) {
+          currentShifts.push({ date: nameCell, grossCents: gross, rentalCents, netCents, trips, hours });
+        }
+      }
+      continue;
+    }
+
+    commitDriver();
+
     const gross = parseCurrencyZAR(cols[8] || "");
+    const rentalTotal = parseCurrencyZAR(cols[7] || "");
     const netPay = parseCurrencyZAR(cols[9] || "");
     const trips = Math.max(0, parseInt((cols[10] || "").replace(/[^0-9]/g, "") || "0", 10));
     const bonus = parseCurrencyZAR(cols[11] || "");
     const netAfterBonus = parseCurrencyZAR(cols[12] || "");
-    const deductions = Math.max(0, gross - Math.max(0, netPay));
     const incentives = Math.max(0, bonus);
     const penalties = Math.max(0, -bonus);
     const finalNet = Math.max(0, netAfterBonus !== 0 ? netAfterBonus : netPay);
-    rows.push({
+
+    currentDriver = {
       driverName: nameCell,
+      resolvedProfileId: undefined,
       grossAmountCents: Math.max(0, gross),
-      deductionsCents: deductions,
+      deductionsCents: Math.max(0, rentalTotal),
       incentivesCents: incentives,
       penaltiesCents: penalties,
       netAmountCents: finalNet,
       tripCount: trips,
-    });
+    };
   }
+
+  commitDriver();
   return rows;
 }
 
@@ -812,11 +857,18 @@ export default function EarningsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
   const [payrollOpen, setPayrollOpen] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: earningsRes, isLoading } = useAdminListEarnings({ status: status !== "all" ? status : undefined });
   const earnings = (earningsRes?.data as EarningsItem[] | undefined) ?? [];
+
+  const { data: driversListRes } = useAdminListDrivers({ status: undefined });
+  const allDrivers = ((driversListRes as { data?: DbDriverProfile[] } | undefined)?.data ?? []) as DbDriverProfile[];
+  const profileIdToName = Object.fromEntries(
+    allDrivers.map((d) => [d.id, [d.firstName, d.lastName].filter(Boolean).join(" ") || d.id])
+  );
 
   const { unpublishEarnings, importPayrollSheet } = useAdminApi();
   const createEarnings = useAdminCreateEarnings();
@@ -975,38 +1027,82 @@ export default function EarningsPage() {
               ) : earnings.length === 0 ? (
                 <TableRow><TableCell colSpan={8} className="text-center py-8 text-gray-500">No earnings records found.</TableCell></TableRow>
               ) : (
-                earnings.map((e) => (
-                  <TableRow key={e.id}>
-                    <TableCell className="font-mono text-xs text-gray-600">{e.driverProfileId.slice(0, 10)}…</TableCell>
-                    <TableCell className="text-sm">{format(new Date(e.periodStart), "MMM d")} – {format(new Date(e.periodEnd), "MMM d, yyyy")}</TableCell>
-                    <TableCell className="text-right">{fmt(e.grossAmountCents ?? 0)}</TableCell>
-                    <TableCell className="text-right text-red-600">-{fmt((e.deductionsCents ?? 0) + (e.penaltiesCents ?? 0))}</TableCell>
-                    <TableCell className="text-right font-bold text-[#3DB324]">{fmt(e.netAmountCents ?? 0)}</TableCell>
-                    <TableCell className="text-center">{e.tripCount ?? "—"}</TableCell>
-                    <TableCell>
-                      <Badge variant={e.status === "published" ? "default" : "secondary"} className={e.status === "published" ? "bg-[#3DB324] hover:bg-[#3DB324]" : ""}>{e.status}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <EditEarningsDialog earning={e} onSave={(data) => handleUpdate(e.id, data)} isPending={updateEarnings.isPending} />
-                        {e.status === "draft" ? (
-                          <Button size="sm" variant="outline" className="border-[#3DB324] text-[#3DB324] hover:bg-[#3DB324] hover:text-white" onClick={() => handlePublish(e.id)} disabled={publishEarnings.isPending} data-testid={`btn-publish-${e.id}`}>
-                            Publish
-                          </Button>
-                        ) : (
-                          <Button size="sm" variant="ghost" className="text-gray-500" onClick={() => handleUnpublish(e.id)} disabled={updateEarnings.isPending} data-testid={`btn-unpublish-${e.id}`} title="Recall to draft">
-                            <RotateCcw className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {e.status === "published" && (
-                          <Button size="sm" variant="ghost" disabled className="text-gray-400">
-                            <Eye className="h-4 w-4 mr-1" /> View
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
+                earnings.flatMap((e) => {
+                  const driverName = profileIdToName[e.driverProfileId] || e.driverProfileId.slice(0, 10) + "…";
+                  const shifts = e.shiftDetails ?? [];
+                  const isExpanded = expandedId === e.id;
+                  return [
+                    <TableRow
+                      key={e.id}
+                      className={`cursor-pointer hover:bg-gray-50 ${isExpanded ? "bg-gray-50" : ""}`}
+                      onClick={() => setExpandedId(isExpanded ? null : e.id)}
+                    >
+                      <TableCell className="font-medium text-sm">
+                        <div className="flex items-center gap-1.5">
+                          {shifts.length > 0
+                            ? (isExpanded ? <ChevronDown className="h-3.5 w-3.5 text-gray-400 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 text-gray-400 shrink-0" />)
+                            : <span className="w-3.5 inline-block" />
+                          }
+                          {driverName}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-sm">{format(new Date(e.periodStart), "MMM d")} – {format(new Date(e.periodEnd), "MMM d, yyyy")}</TableCell>
+                      <TableCell className="text-right">{fmt(e.grossAmountCents ?? 0)}</TableCell>
+                      <TableCell className="text-right text-red-600">-{fmt((e.deductionsCents ?? 0) + (e.penaltiesCents ?? 0))}</TableCell>
+                      <TableCell className="text-right font-bold text-[#3DB324]">{fmt(e.netAmountCents ?? 0)}</TableCell>
+                      <TableCell className="text-center">{e.tripCount ?? "—"}</TableCell>
+                      <TableCell>
+                        <Badge variant={e.status === "published" ? "default" : "secondary"} className={e.status === "published" ? "bg-[#3DB324] hover:bg-[#3DB324]" : ""}>{e.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right" onClick={(ev) => ev.stopPropagation()}>
+                        <div className="flex items-center justify-end gap-1">
+                          <EditEarningsDialog earning={e} onSave={(data) => handleUpdate(e.id, data)} isPending={updateEarnings.isPending} />
+                          {e.status === "draft" ? (
+                            <Button size="sm" variant="outline" className="border-[#3DB324] text-[#3DB324] hover:bg-[#3DB324] hover:text-white" onClick={() => handlePublish(e.id)} disabled={publishEarnings.isPending} data-testid={`btn-publish-${e.id}`}>
+                              Publish
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="ghost" className="text-gray-500" onClick={() => handleUnpublish(e.id)} disabled={updateEarnings.isPending} data-testid={`btn-unpublish-${e.id}`} title="Recall to draft">
+                              <RotateCcw className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
+                      </TableCell>
+                    </TableRow>,
+                    isExpanded && shifts.length > 0 ? (
+                      <TableRow key={`${e.id}-detail`} className="bg-gray-50/80">
+                        <TableCell colSpan={8} className="py-0 px-0">
+                          <div className="ml-10 border-l-2 border-[#3DB324]/30 pl-4 py-3">
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr className="text-gray-400 uppercase tracking-wide">
+                                  <th className="text-left pb-1.5 font-medium">Shift Date</th>
+                                  <th className="text-right pb-1.5 font-medium">Hours</th>
+                                  <th className="text-right pb-1.5 font-medium">Gross</th>
+                                  <th className="text-right pb-1.5 font-medium">Rental</th>
+                                  <th className="text-right pb-1.5 font-medium text-[#3DB324]">Net</th>
+                                  <th className="text-right pb-1.5 font-medium">Trips</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {shifts.map((s, i) => (
+                                  <tr key={i} className="border-t border-gray-100">
+                                    <td className="py-1 text-gray-700 font-medium">{s.date}</td>
+                                    <td className="py-1 text-right text-gray-600">{s.hours > 0 ? s.hours.toFixed(2) : "—"}</td>
+                                    <td className="py-1 text-right text-gray-700">{fmt(s.grossCents)}</td>
+                                    <td className="py-1 text-right text-red-500">-{fmt(s.rentalCents)}</td>
+                                    <td className="py-1 text-right font-semibold text-[#3DB324]">{fmt(s.netCents)}</td>
+                                    <td className="py-1 text-right text-gray-600">{s.trips || "—"}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : null,
+                  ].filter(Boolean);
+                })
               )}
             </TableBody>
           </Table>

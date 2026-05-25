@@ -1,6 +1,15 @@
-import { pgTable, text, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+
+export type ShiftDetail = {
+  date: string;
+  grossCents: number;
+  rentalCents: number;
+  netCents: number;
+  trips: number;
+  hours: number;
+};
 
 export const earningsTable = pgTable("earnings", {
   id: text("id").primaryKey(),
@@ -18,6 +27,7 @@ export const earningsTable = pgTable("earnings", {
   netAmountCents: integer("net_amount_cents").notNull().default(0),
   tripCount: integer("trip_count").notNull().default(0),
   notes: text("notes"),
+  shiftDetails: jsonb("shift_details").$type<ShiftDetail[]>(),
   status: text("status").notNull().default("draft"),
   publishedAt: timestamp("published_at", { withTimezone: true }),
   publishedBy: text("published_by"),
