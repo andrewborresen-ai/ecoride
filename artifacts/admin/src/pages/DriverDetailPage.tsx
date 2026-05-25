@@ -111,17 +111,22 @@ export default function DriverDetailPage() {
 
   const handleViewDoc = useCallback(async (doc: DriverDoc) => {
     if (!doc.objectPath) return;
+
+    // Public objects: use URL directly — no fetch, no blob, no caching issues
+    if (!doc.objectPath.startsWith("/objects/")) {
+      const publicUrl = `/api/storage/public-objects/${doc.objectPath}`;
+      setViewDocState({ doc, blobUrl: publicUrl, loading: false, error: null });
+      return;
+    }
+
+    // Private objects: need auth header — fetch fresh (no-store) and convert to data URL
     setViewDocState({ doc, blobUrl: null, loading: true, error: null });
     try {
       const token = await getToken();
-      let fetchPath = "";
-      if (doc.objectPath.startsWith("/objects/")) {
-        fetchPath = `/api/storage/objects/${doc.objectPath.slice("/objects/".length)}`;
-      } else {
-        fetchPath = `/api/storage/public-objects/${doc.objectPath}`;
-      }
+      const fetchPath = `/api/storage/objects/${doc.objectPath.slice("/objects/".length)}`;
       const res = await fetch(fetchPath, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
+        cache: "no-store",
       });
       if (!res.ok) throw new Error(`Failed to load document (${res.status})`);
       const blob = await res.blob();
