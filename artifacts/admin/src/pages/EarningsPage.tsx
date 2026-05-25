@@ -316,10 +316,11 @@ function PayrollImportWizard({
 function parseCsv(text: string): { headers: string[]; rows: Record<string, string>[] } {
   const lines = text.trim().split(/\r?\n/);
   if (lines.length < 2) return { headers: [], rows: [] };
-  const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
+  const allHeaders = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, ""));
+  const headers = allHeaders.filter((h) => h !== "");
   const rows = lines.slice(1).map((line) => {
     const values = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
-    return Object.fromEntries(headers.map((h, i) => [h, values[i] ?? ""]));
+    return Object.fromEntries(headers.map((h, i) => [h, values[allHeaders.indexOf(h)] ?? values[i] ?? ""]));
   });
   return { headers, rows };
 }
