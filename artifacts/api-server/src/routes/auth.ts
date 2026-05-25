@@ -43,9 +43,25 @@ router.post("/v1/auth/register", async (req, res): Promise<void> => {
 
   const { email } = parsed.data;
 
-  const existing = await db.select().from(usersTable).where(eq(usersTable.clerkId, auth.userId));
+  const existing = await db
+    .select()
+    .from(usersTable)
+    .where(or(eq(usersTable.clerkId, auth.userId), eq(usersTable.email, email)));
+
   if (existing.length > 0) {
-    const [user] = existing;
+    const [found] = existing;
+    let user = found;
+
+    if (found.clerkId !== auth.userId) {
+      const [updated] = await db
+        .update(usersTable)
+        .set({ clerkId: auth.userId, updatedAt: new Date() })
+        .where(eq(usersTable.id, found.id))
+        .returning();
+      user = updated;
+      req.log.info({ userId: updated.id }, "Driver clerk_id updated on re-registration");
+    }
+
     let profile = null;
     if (user.role === "driver") {
       const [p] = await db.select().from(driverProfilesTable).where(eq(driverProfilesTable.userId, user.id));
