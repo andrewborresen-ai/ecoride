@@ -117,9 +117,9 @@ export default function DriverDetailPage() {
       const token = await getToken();
       let fetchPath = "";
       if (doc.objectPath.startsWith("/objects/")) {
-        fetchPath = `/storage/objects/${doc.objectPath.slice("/objects/".length)}`;
+        fetchPath = `/api/storage/objects/${doc.objectPath.slice("/objects/".length)}`;
       } else {
-        fetchPath = `/storage/public-objects/${doc.objectPath}`;
+        fetchPath = `/api/storage/public-objects/${doc.objectPath}`;
       }
       const res = await fetch(fetchPath, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
