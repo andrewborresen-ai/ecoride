@@ -307,7 +307,7 @@ export default function DriverDetailPage() {
       </Dialog>
 
       {/* Header */}
-      <div className="flex items-start gap-4">
+      <div className="flex items-center gap-4">
         <Link href="/drivers">
           <Button variant="ghost" size="icon" data-testid="btn-back">
             <ArrowLeft className="h-5 w-5" />
