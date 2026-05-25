@@ -317,7 +317,6 @@ export default function DriverDetailPage() {
           <h1 className="text-2xl font-bold text-[#1C2126] tracking-tight">
             {driver.firstName} {driver.lastName}
           </h1>
-          <p className="text-gray-500 font-mono text-xs mt-0.5">{driver.id}</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           {driver.telematicsSyncStatus !== "synced" && (
