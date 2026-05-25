@@ -24,7 +24,7 @@ const PatchProfileBody = z.object({
   accountType: z.string().optional(),
   branchCode: z.string().optional(),
   boltDriverId: z.string().optional(),
-  boltDeclarationAccepted: z.boolean().optional(),
+  boltDeclarationAccepted: z.string().optional(),
   fleetType: z.enum(["electric", "lpg"]).optional(),
 }).strict();
 

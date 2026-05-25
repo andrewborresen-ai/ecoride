@@ -29,7 +29,7 @@ export default function SignInScreen() {
 
     if (!email.trim() || !password) {
       setErrorMsg("Please enter your email and password.");
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); } catch {}
       return;
     }
 
@@ -38,53 +38,46 @@ export default function SignInScreen() {
       return;
     }
 
+    setIsLoading(true);
     try {
-      setIsLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } catch {}
 
-      const attempt = await signIn.create({ identifier: email.trim() });
+    try {
+      const result = await signIn.create({
+        identifier: email.trim(),
+        strategy: "password",
+        password,
+      });
 
-      if (attempt.status === "complete") {
-        await setActive({ session: attempt.createdSessionId });
+      if (result.status === "complete") {
+        if (!result.createdSessionId) throw new Error("No session created");
+        await setActive({ session: result.createdSessionId });
         router.replace("/");
         return;
       }
 
-      if (attempt.status === "needs_first_factor") {
-        const result = await signIn.attemptFirstFactor({ strategy: "password", password });
-
-        if (result.status === "complete") {
-          await setActive({ session: result.createdSessionId });
-          router.replace("/");
-          return;
-        }
-
-        if (result.status === "needs_second_factor") {
-          const hasEmailCode = result.supportedSecondFactors?.some(
-            (f: { strategy: string }) => f.strategy === "email_code"
+      if (result.status === "needs_second_factor") {
+        const prepareFn = (signIn as unknown as Record<string, unknown>).prepareSecondFactor;
+        if (typeof prepareFn === "function") {
+          await (prepareFn as (arg: unknown) => Promise<unknown>).call(signIn, { strategy: "email_code" });
+          setStep("verify");
+        } else {
+          setErrorMsg(
+            "Email verification is required to sign in. Please use 'Forgot password?' to reset and access your account."
           );
-          if (hasEmailCode) {
-            await signIn.prepareSecondFactor({ strategy: "email_code" });
-            setStep("verify");
-          } else {
-            setErrorMsg(
-              "Your account requires additional verification. Please contact support or use 'Forgot password?' to reset your account."
-            );
-          }
-          return;
         }
-
-        setErrorMsg(`Sign in failed (${result.status}). Please try again or contact support.`);
         return;
       }
 
-      setErrorMsg(`Sign in failed (${attempt.status}). Please try again or contact support.`);
+      setErrorMsg(`Sign in failed (${result.status}). Please try again or contact support.`);
     } catch (err: unknown) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); } catch {}
       const clerkErr = err as { errors?: { longMessage?: string; message?: string }[] };
       const msg =
         clerkErr?.errors?.[0]?.longMessage ??
         clerkErr?.errors?.[0]?.message ??
+        (err instanceof Error ? err.message : null) ??
         "Sign in failed. Please check your credentials.";
       setErrorMsg(msg);
     } finally {
@@ -95,22 +88,35 @@ export default function SignInScreen() {
   const handleVerifyCode = async () => {
     if (!isLoaded || !signIn || !code) return;
     setErrorMsg("");
+    setIsLoading(true);
     try {
-      setIsLoading(true);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const result = await signIn.attemptSecondFactor({ strategy: "email_code", code });
+    } catch {}
+
+    try {
+      const attemptFn = (signIn as unknown as Record<string, unknown>).attemptSecondFactor;
+      if (typeof attemptFn !== "function") {
+        setErrorMsg("Verification is not available. Please use 'Forgot password?' to sign in.");
+        return;
+      }
+      const result = await (attemptFn as (arg: unknown) => Promise<{ status: string; createdSessionId: string | null }>).call(
+        signIn,
+        { strategy: "email_code", code }
+      );
       if (result.status === "complete") {
+        if (!result.createdSessionId) throw new Error("No session created");
         await setActive({ session: result.createdSessionId });
         router.replace("/");
       } else {
         setErrorMsg("Verification failed. Please try again.");
       }
     } catch (err: unknown) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error); } catch {}
       const clerkErr = err as { errors?: { longMessage?: string; message?: string }[] };
       const msg =
         clerkErr?.errors?.[0]?.longMessage ??
         clerkErr?.errors?.[0]?.message ??
+        (err instanceof Error ? err.message : null) ??
         "Invalid code. Please try again.";
       setErrorMsg(msg);
     } finally {

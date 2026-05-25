@@ -38,7 +38,7 @@ export default function FleetStep() {
     if (profile) {
       if (profile.fleetType === "electric" || profile.fleetType === "lpg") setFleetType(profile.fleetType);
       setBoltDriverId(profile.boltDriverId ?? "");
-      setBoltAccepted(!!profile.boltDeclarationAccepted);
+      setBoltAccepted(profile.boltDeclarationAccepted === "true");
     }
   }, [profile?.id]);
 
@@ -51,7 +51,7 @@ export default function FleetStep() {
         data: {
           fleetType,
           boltDriverId: boltDriverId || undefined,
-          boltDeclarationAccepted: boltAccepted ? true : undefined,
+          boltDeclarationAccepted: boltAccepted ? "true" : undefined,
         },
       });
       router.push("/(onboarding)/documents");
