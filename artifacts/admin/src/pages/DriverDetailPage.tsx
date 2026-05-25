@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRoute } from "wouter";
 import {
   useAdminGetDriver,
@@ -106,7 +106,6 @@ export default function DriverDetailPage() {
   const [notesSaving, setNotesSaving] = useState(false);
   const [retryingTelematics, setRetryingTelematics] = useState(false);
   const [viewDocState, setViewDocState] = useState<ViewDocState | null>(null);
-  const blobUrlRef = useRef<string | null>(null);
   const { getToken } = useAuth();
   const { getDriverNotes, patchDriverNotes, retryTelematics } = useAdminApi();
 
@@ -126,17 +125,19 @@ export default function DriverDetailPage() {
       });
       if (!res.ok) throw new Error(`Failed to load document (${res.status})`);
       const blob = await res.blob();
-      if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
-      const url = URL.createObjectURL(blob);
-      blobUrlRef.current = url;
-      setViewDocState({ doc, blobUrl: url, loading: false, error: null });
+      const dataUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error("Failed to read document"));
+        reader.readAsDataURL(blob);
+      });
+      setViewDocState({ doc, blobUrl: dataUrl, loading: false, error: null });
     } catch (err) {
       setViewDocState({ doc, blobUrl: null, loading: false, error: (err as Error).message });
     }
   }, [getToken]);
 
   const closeViewDoc = useCallback(() => {
-    if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null; }
     setViewDocState(null);
   }, []);
 
