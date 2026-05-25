@@ -154,6 +154,43 @@ function parsePayrollSheet(text: string): PayrollRow[] {
   return rows;
 }
 
+function detectPayrollPeriod(text: string): { start: string; end: string } | null {
+  const MONTHS: Record<string, number> = {
+    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+    jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+  };
+  const now = new Date();
+  const dates: Date[] = [];
+
+  for (const line of text.split(/\r?\n/)) {
+    const cols = splitCsvRowPayroll(line);
+    const cell = (cols[0] || "").trim();
+    if (!cell || !isPayrollDateRow(cell)) continue;
+    const monthMatch = cell.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i);
+    if (!monthMatch) continue;
+    const monthIdx = MONTHS[monthMatch[1].toLowerCase()];
+    if (monthIdx === undefined) continue;
+    for (const dm of cell.matchAll(/(\d+)/g)) {
+      const day = parseInt(dm[1], 10);
+      if (day < 1 || day > 31) continue;
+      let year = now.getFullYear();
+      const candidate = new Date(year, monthIdx, day);
+      if (candidate.getTime() - now.getTime() > 180 * 24 * 60 * 60 * 1000) year--;
+      dates.push(new Date(year, monthIdx, day));
+    }
+  }
+
+  if (dates.length === 0) return null;
+  const times = dates.map((d) => d.getTime());
+  const minD = new Date(Math.min(...times));
+  const maxD = new Date(Math.max(...times));
+  const pad = (n: number) => n.toString().padStart(2, "0");
+  return {
+    start: `${minD.getFullYear()}-${pad(minD.getMonth() + 1)}-${pad(minD.getDate())}`,
+    end: `${maxD.getFullYear()}-${pad(maxD.getMonth() + 1)}-${pad(maxD.getDate())}`,
+  };
+}
+
 function PayrollImportWizard({
   onClose,
   onImport,
@@ -173,6 +210,8 @@ function PayrollImportWizard({
   const { data: driversRes } = useAdminListDrivers({ status: undefined });
   const dbDrivers = ((driversRes as { data?: DbDriverProfile[] } | undefined)?.data ?? []) as DbDriverProfile[];
 
+  const [periodAutoDetected, setPeriodAutoDetected] = useState(false);
+
   const handleFileSelect = async () => {
     const file = fileInputRef.current?.files?.[0];
     if (!file) return;
@@ -187,6 +226,14 @@ function PayrollImportWizard({
       const initialMap: Record<string, string> = {};
       for (const row of rows) {
         initialMap[row.driverName] = fuzzyMatchDriverId(row.driverName, dbDrivers);
+      }
+      const detected = detectPayrollPeriod(text);
+      if (detected) {
+        setPeriodStart(detected.start);
+        setPeriodEnd(detected.end);
+        setPeriodAutoDetected(true);
+      } else {
+        setPeriodAutoDetected(false);
       }
       setParsedRows(rows);
       setNameMap(initialMap);
@@ -310,16 +357,24 @@ function PayrollImportWizard({
         <div className="flex-1 space-y-5">
           <div className="flex items-center gap-2 text-sm text-[#3DB324] font-medium">
             <Check className="h-4 w-4" />
-            {matchedCount} driver{matchedCount !== 1 ? "s" : ""} mapped — enter the pay period
+            {matchedCount} driver{matchedCount !== 1 ? "s" : ""} mapped
           </div>
+          {periodAutoDetected && periodStart && periodEnd ? (
+            <div className="flex items-center gap-2 rounded-lg bg-[#3DB324]/10 border border-[#3DB324]/30 px-3 py-2 text-sm text-[#3DB324]">
+              <Check className="h-4 w-4 shrink-0" />
+              Period auto-detected from file: <strong>{periodStart}</strong> → <strong>{periodEnd}</strong>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-600">Enter the pay period these earnings cover:</p>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs">Period Start *</Label>
-              <Input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} />
+              <Input type="date" value={periodStart} onChange={(e) => { setPeriodStart(e.target.value); setPeriodAutoDetected(false); }} />
             </div>
             <div className="space-y-1.5">
               <Label className="text-xs">Period End *</Label>
-              <Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} />
+              <Input type="date" value={periodEnd} onChange={(e) => { setPeriodEnd(e.target.value); setPeriodAutoDetected(false); }} />
             </div>
           </div>
           <div className="flex gap-2 pt-2">
