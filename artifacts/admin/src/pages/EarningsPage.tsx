@@ -18,7 +18,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Plus, Upload, Eye, Download, AlertCircle, Check, Pencil, RotateCcw } from "lucide-react";
+import { Plus, Upload, Eye, Download, AlertCircle, Check, Pencil, RotateCcw, FileSpreadsheet } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 
@@ -39,6 +39,277 @@ interface EarningsItem {
 
 
 const fmt = (cents: number) => `R ${(cents / 100).toFixed(2)}`;
+
+// --- Payroll Sheet Import ---
+
+interface PayrollRow {
+  driverName: string;
+  grossAmountCents: number;
+  deductionsCents: number;
+  incentivesCents: number;
+  penaltiesCents: number;
+  netAmountCents: number;
+  tripCount: number;
+}
+
+interface PayrollImportResult {
+  imported: number;
+  unmatched: string[];
+  errors: { driverName: string; error: string }[];
+}
+
+type PayrollStep = "upload" | "period" | "preview" | "importing" | "done";
+
+function splitCsvRowPayroll(line: string): string[] {
+  const result: string[] = [];
+  let cur = "";
+  let inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === "," && !inQ) { result.push(cur.trim()); cur = ""; }
+    else { cur += c; }
+  }
+  result.push(cur.trim());
+  return result;
+}
+
+function parseCurrencyZAR(raw: string): number {
+  if (!raw) return 0;
+  let s = raw.replace(/["""]/g, "").replace(/R/gi, "").replace(/\s/g, "").replace(/,/g, "");
+  if (!s || s === "-" || s === "–") return 0;
+  const neg = s.startsWith("-");
+  s = s.replace(/^-/, "");
+  const v = parseFloat(s);
+  return isNaN(v) ? 0 : Math.round((neg ? -v : v) * 100);
+}
+
+function isPayrollDateRow(cell: string): boolean {
+  const t = cell.trim();
+  if (!t) return true;
+  if (/^\d/.test(t)) return true;
+  if (/\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/i.test(t)) return true;
+  return false;
+}
+
+function parsePayrollSheet(text: string): PayrollRow[] {
+  const lines = text.split(/\r?\n/);
+  const headerIdx = lines.findIndex((l) => {
+    const c = splitCsvRowPayroll(l);
+    return c[0]?.trim().toLowerCase() === "driver" && c.some((x) => /gross/i.test(x));
+  });
+  if (headerIdx < 0) return [];
+  const rows: PayrollRow[] = [];
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const cols = splitCsvRowPayroll(lines[i]);
+    const nameCell = (cols[0] || "").trim();
+    if (!nameCell || isPayrollDateRow(nameCell)) continue;
+    const gross = parseCurrencyZAR(cols[8] || "");
+    const netPay = parseCurrencyZAR(cols[9] || "");
+    const trips = Math.max(0, parseInt((cols[10] || "").replace(/[^0-9]/g, "") || "0", 10));
+    const bonus = parseCurrencyZAR(cols[11] || "");
+    const netAfterBonus = parseCurrencyZAR(cols[12] || "");
+    const deductions = Math.max(0, gross - Math.max(0, netPay));
+    const incentives = Math.max(0, bonus);
+    const penalties = Math.max(0, -bonus);
+    const finalNet = Math.max(0, netAfterBonus !== 0 ? netAfterBonus : netPay);
+    rows.push({
+      driverName: nameCell,
+      grossAmountCents: Math.max(0, gross),
+      deductionsCents: deductions,
+      incentivesCents: incentives,
+      penaltiesCents: penalties,
+      netAmountCents: finalNet,
+      tripCount: trips,
+    });
+  }
+  return rows;
+}
+
+function PayrollImportWizard({
+  onClose,
+  onImport,
+}: {
+  onClose: () => void;
+  onImport: (rows: PayrollRow[], periodStart: string, periodEnd: string) => Promise<PayrollImportResult>;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [step, setStep] = useState<PayrollStep>("upload");
+  const [parsedRows, setParsedRows] = useState<PayrollRow[]>([]);
+  const [periodStart, setPeriodStart] = useState("");
+  const [periodEnd, setPeriodEnd] = useState("");
+  const [result, setResult] = useState<PayrollImportResult | null>(null);
+  const { toast } = useToast();
+
+  const handleFileSelect = () => {
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = e.target?.result as string;
+      const rows = parsePayrollSheet(text);
+      if (rows.length === 0) {
+        toast({ title: "No driver rows detected", description: "Check the file has a 'Driver' and 'Gross Earnings (R)' header row.", variant: "destructive" });
+        return;
+      }
+      setParsedRows(rows);
+      setStep("period");
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImport = useCallback(async () => {
+    if (!periodStart || !periodEnd) return;
+    setStep("importing");
+    try {
+      const res = await onImport(parsedRows, new Date(periodStart).toISOString(), new Date(periodEnd).toISOString());
+      setResult(res);
+      setStep("done");
+    } catch (err) {
+      toast({ title: "Import failed", description: (err as Error).message, variant: "destructive" });
+      setStep("preview");
+    }
+  }, [parsedRows, periodStart, periodEnd, onImport, toast]);
+
+  return (
+    <div className="min-h-[360px] flex flex-col">
+      {step === "upload" && (
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 py-8">
+          <input type="file" accept=".csv" ref={fileInputRef} className="hidden" onChange={handleFileSelect} />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="w-full h-40 border-dashed border-2 border-gray-300 rounded-xl bg-gray-50 flex flex-col items-center justify-center gap-2 hover:bg-gray-100 hover:border-[#3DB324] transition-colors"
+          >
+            <FileSpreadsheet className="h-8 w-8 text-gray-400" />
+            <span className="text-sm font-semibold text-gray-600">Click to upload payroll CSV</span>
+            <span className="text-xs text-gray-400">Export the weekly earnings sheet as CSV and upload here</span>
+          </button>
+          <p className="text-xs text-gray-400 text-center max-w-sm">
+            Expected columns: <strong>Driver</strong>, Gross Earnings (R), Net Pay (R), Trips, Bonus, Net After Bonus.<br />
+            Drivers are matched by first and last name.
+          </p>
+        </div>
+      )}
+
+      {step === "period" && (
+        <div className="flex-1 space-y-5">
+          <div className="flex items-center gap-2 text-sm text-[#3DB324] font-medium">
+            <Check className="h-4 w-4" />
+            {parsedRows.length} driver rows detected
+          </div>
+          <p className="text-sm text-gray-600">Enter the pay period these earnings cover:</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-xs">Period Start *</Label>
+              <Input type="date" value={periodStart} onChange={(e) => setPeriodStart(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Period End *</Label>
+              <Input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} />
+            </div>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button variant="outline" onClick={() => setStep("upload")}>Back</Button>
+            <Button variant="outline" onClick={() => setStep("preview")} disabled={!periodStart || !periodEnd}>
+              Preview {parsedRows.length} rows
+            </Button>
+            <Button
+              className="ml-auto bg-[#3DB324] hover:bg-[#329b1d]"
+              disabled={!periodStart || !periodEnd}
+              onClick={handleImport}
+            >
+              Import {parsedRows.length} Drivers
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === "preview" && (
+        <div className="flex-1 space-y-3">
+          <p className="text-sm text-gray-500">
+            <strong>{parsedRows.length}</strong> drivers parsed — matched by name on import.
+          </p>
+          <div className="overflow-auto rounded-lg border text-xs max-h-72">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Driver Name</TableHead>
+                  <TableHead className="text-right">Gross</TableHead>
+                  <TableHead className="text-right">Deductions</TableHead>
+                  <TableHead className="text-right text-[#3DB324]">Net Pay</TableHead>
+                  <TableHead className="text-right">Trips</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {parsedRows.map((row, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="font-medium">{row.driverName}</TableCell>
+                    <TableCell className="text-right">{fmt(row.grossAmountCents)}</TableCell>
+                    <TableCell className="text-right text-red-600">{fmt(row.deductionsCents)}</TableCell>
+                    <TableCell className="text-right font-semibold text-[#3DB324]">{fmt(row.netAmountCents)}</TableCell>
+                    <TableCell className="text-right">{row.tripCount || "—"}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setStep("period")}>Back</Button>
+            <Button className="ml-auto bg-[#3DB324] hover:bg-[#329b1d]" onClick={handleImport}>
+              Import All {parsedRows.length} Rows
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {step === "importing" && (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-3">
+            <div className="h-10 w-10 border-4 border-[#3DB324] border-t-transparent rounded-full animate-spin mx-auto" />
+            <p className="text-gray-600 font-medium">Importing payroll data…</p>
+            <p className="text-xs text-gray-400">{parsedRows.length} drivers to process</p>
+          </div>
+        </div>
+      )}
+
+      {step === "done" && result && (
+        <div className="flex-1 flex flex-col items-center justify-center gap-4 py-6">
+          <Check className="h-12 w-12 text-[#3DB324]" />
+          <div className="text-center">
+            <p className="text-xl font-bold text-[#1C2126]">Import Complete</p>
+            <p className="text-gray-500 mt-1">
+              <span className="text-[#3DB324] font-semibold">{result.imported} drivers</span> imported as draft
+              {result.unmatched.length > 0 && <>, <span className="text-amber-600 font-semibold">{result.unmatched.length} unmatched</span></>}
+              {result.errors.length > 0 && <>, <span className="text-red-600 font-semibold">{result.errors.length} errors</span></>}.
+            </p>
+          </div>
+          {result.unmatched.length > 0 && (
+            <div className="w-full space-y-1">
+              <p className="text-xs font-semibold text-amber-700">No matching driver found for:</p>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 max-h-28 overflow-y-auto">
+                {result.unmatched.map((name, i) => (
+                  <p key={i} className="text-xs text-amber-800">• {name}</p>
+                ))}
+              </div>
+            </div>
+          )}
+          {result.errors.length > 0 && (
+            <div className="w-full space-y-1">
+              <p className="text-xs font-semibold text-red-700">Errors:</p>
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 max-h-24 overflow-y-auto">
+                {result.errors.map((e, i) => (
+                  <p key={i} className="text-xs text-red-700">{e.driverName}: {e.error}</p>
+                ))}
+              </div>
+            </div>
+          )}
+          <Button onClick={onClose} className="bg-[#3DB324] hover:bg-[#329b1d]">Done</Button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // --- CSV Utilities ---
 
@@ -322,13 +593,14 @@ export default function EarningsPage() {
   const [status, setStatus] = useState<string>("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [csvOpen, setCsvOpen] = useState(false);
+  const [payrollOpen, setPayrollOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const { data: earningsRes, isLoading } = useAdminListEarnings({ status: status !== "all" ? status : undefined });
   const earnings = (earningsRes?.data as EarningsItem[] | undefined) ?? [];
 
-  const { unpublishEarnings } = useAdminApi();
+  const { unpublishEarnings, importPayrollSheet } = useAdminApi();
   const createEarnings = useAdminCreateEarnings();
   const updateEarnings = useAdminUpdateEarnings();
   const publishEarnings = useAdminPublishEarnings();
@@ -380,6 +652,14 @@ export default function EarningsPage() {
     });
   }, [createEarnings]);
 
+  const handlePayrollImport = useCallback(
+    async (rows: PayrollRow[], periodStart: string, periodEnd: string): Promise<PayrollImportResult> => {
+      const res = await importPayrollSheet(rows, periodStart, periodEnd);
+      return (res as { data: PayrollImportResult }).data;
+    },
+    [importPayrollSheet]
+  );
+
   const draftCount = earnings.filter((e) => e.status === "draft").length;
 
   return (
@@ -390,6 +670,20 @@ export default function EarningsPage() {
           <p className="text-gray-500">Manage driver payouts, deductions, and statements.</p>
         </div>
         <div className="flex gap-2">
+          <Dialog open={payrollOpen} onOpenChange={setPayrollOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" data-testid="btn-import-payroll">
+                <FileSpreadsheet className="mr-2 h-4 w-4" /> Import Payroll Sheet
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl">
+              <DialogHeader><DialogTitle>Import Weekly Payroll Sheet</DialogTitle></DialogHeader>
+              <PayrollImportWizard
+                onClose={() => { setPayrollOpen(false); invalidate(); }}
+                onImport={handlePayrollImport}
+              />
+            </DialogContent>
+          </Dialog>
           <Dialog open={csvOpen} onOpenChange={setCsvOpen}>
             <DialogTrigger asChild>
               <Button variant="outline" data-testid="btn-import-csv"><Upload className="mr-2 h-4 w-4" /> Import CSV</Button>

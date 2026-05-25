@@ -68,5 +68,14 @@ export function useAdminApi() {
     [authFetch]
   );
 
-  return { getDriverNotes, patchDriverNotes, getSentNotifications, waitlistAllocation, unpublishEarnings, retryTelematics };
+  const importPayrollSheet = useCallback(
+    (rows: unknown[], periodStart: string, periodEnd: string) =>
+      authFetch("/api/v1/admin/earnings/import-payroll-sheet", {
+        method: "POST",
+        body: JSON.stringify({ rows, periodStart, periodEnd }),
+      }),
+    [authFetch]
+  );
+
+  return { getDriverNotes, patchDriverNotes, getSentNotifications, waitlistAllocation, unpublishEarnings, retryTelematics, importPayrollSheet };
 }

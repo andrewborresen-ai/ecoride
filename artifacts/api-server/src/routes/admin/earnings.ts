@@ -246,4 +246,100 @@ router.post("/v1/admin/earnings/import-csv", requireAdmin, async (req: Authentic
   );
 });
 
+const PayrollRowSchema = z.object({
+  driverName: z.string().min(1),
+  grossAmountCents: z.number().int().default(0),
+  deductionsCents: z.number().int().min(0).default(0),
+  incentivesCents: z.number().int().min(0).default(0),
+  penaltiesCents: z.number().int().min(0).default(0),
+  netAmountCents: z.number().int().min(0).default(0),
+  tripCount: z.number().int().min(0).default(0),
+});
+
+const ImportPayrollBody = z.object({
+  rows: z.array(PayrollRowSchema).min(1),
+  periodStart: z.string().min(1),
+  periodEnd: z.string().min(1),
+});
+
+router.post("/v1/admin/earnings/import-payroll-sheet", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
+  const parsed = ImportPayrollBody.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ success: false, error: parsed.error.issues[0]?.message ?? "Invalid request", data: null, meta: null });
+    return;
+  }
+
+  const { rows, periodStart, periodEnd } = parsed.data;
+
+  // Load all driver profiles once for name-matching
+  const allProfiles = await db
+    .select({
+      id: driverProfilesTable.id,
+      userId: driverProfilesTable.userId,
+      firstName: driverProfilesTable.firstName,
+      lastName: driverProfilesTable.lastName,
+    })
+    .from(driverProfilesTable);
+
+  const normStr = (s: string | null | undefined) =>
+    (s ?? "").toUpperCase().replace(/\s+/g, " ").trim();
+
+  const created: typeof earningsTable.$inferSelect[] = [];
+  const unmatched: string[] = [];
+  const errors: { driverName: string; error: string }[] = [];
+
+  for (const row of rows) {
+    const csvName = normStr(row.driverName);
+
+    const profile = allProfiles.find((p) => {
+      const fn = normStr(p.firstName);
+      const ln = normStr(p.lastName);
+      return (
+        `${fn} ${ln}`.trim() === csvName ||
+        `${ln} ${fn}`.trim() === csvName ||
+        fn === csvName ||
+        ln === csvName
+      );
+    });
+
+    if (!profile) {
+      unmatched.push(row.driverName);
+      continue;
+    }
+
+    try {
+      const [record] = await db
+        .insert(earningsTable)
+        .values({
+          id: newId(),
+          driverProfileId: profile.id,
+          userId: profile.userId,
+          shiftId: null,
+          shiftAllocationId: null,
+          periodStart: new Date(periodStart),
+          periodEnd: new Date(periodEnd),
+          currencyCode: "ZAR",
+          grossAmountCents: Math.max(0, row.grossAmountCents),
+          deductionsCents: row.deductionsCents,
+          incentivesCents: row.incentivesCents,
+          penaltiesCents: row.penaltiesCents,
+          netAmountCents: row.netAmountCents,
+          tripCount: row.tripCount,
+          notes: null,
+          status: "draft",
+          createdBy: req.userId!,
+        })
+        .returning();
+      created.push(record);
+    } catch (err) {
+      errors.push({ driverName: row.driverName, error: (err as Error).message });
+    }
+  }
+
+  req.log.info({ imported: created.length, unmatched: unmatched.length, errors: errors.length }, "Payroll sheet import completed");
+  res.status(created.length === 0 && rows.length > 0 ? 422 : 201).json(
+    ok({ imported: created.length, unmatched, errors }, { total: rows.length })
+  );
+});
+
 export default router;
