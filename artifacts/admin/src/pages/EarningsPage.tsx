@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from "react";
+import * as XLSX from "xlsx";
 import {
   useAdminListEarnings,
   useAdminCreateEarnings,
@@ -141,12 +142,11 @@ function PayrollImportWizard({
   const [result, setResult] = useState<PayrollImportResult | null>(null);
   const { toast } = useToast();
 
-  const handleFileSelect = () => {
+  const handleFileSelect = async () => {
     const file = fileInputRef.current?.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
+    try {
+      const text = await parseSpreadsheetFileAsCSV(file);
       const rows = parsePayrollSheet(text);
       if (rows.length === 0) {
         toast({ title: "No driver rows detected", description: "Check the file has a 'Driver' and 'Gross Earnings (R)' header row.", variant: "destructive" });
@@ -154,8 +154,9 @@ function PayrollImportWizard({
       }
       setParsedRows(rows);
       setStep("period");
-    };
-    reader.readAsText(file);
+    } catch (err) {
+      toast({ title: "Failed to read file", description: (err as Error).message, variant: "destructive" });
+    }
   };
 
   const handleImport = useCallback(async () => {
@@ -175,15 +176,15 @@ function PayrollImportWizard({
     <div className="min-h-[360px] flex flex-col">
       {step === "upload" && (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 py-8">
-          <input type="file" accept=".csv" ref={fileInputRef} className="hidden" onChange={handleFileSelect} />
+          <input type="file" accept=".csv,.xlsx,.xls" ref={fileInputRef} className="hidden" onChange={handleFileSelect} />
           <button
             type="button"
             onClick={() => fileInputRef.current?.click()}
             className="w-full h-40 border-dashed border-2 border-gray-300 rounded-xl bg-gray-50 flex flex-col items-center justify-center gap-2 hover:bg-gray-100 hover:border-[#3DB324] transition-colors"
           >
             <FileSpreadsheet className="h-8 w-8 text-gray-400" />
-            <span className="text-sm font-semibold text-gray-600">Click to upload payroll CSV</span>
-            <span className="text-xs text-gray-400">Export the weekly earnings sheet as CSV and upload here</span>
+            <span className="text-sm font-semibold text-gray-600">Click to upload payroll sheet</span>
+            <span className="text-xs text-gray-400">Accepts .xlsx or .csv — exports directly from the earnings spreadsheet</span>
           </button>
           <p className="text-xs text-gray-400 text-center max-w-sm">
             Expected columns: <strong>Driver</strong>, Gross Earnings (R), Net Pay (R), Trips, Bonus, Net After Bonus.<br />
@@ -325,6 +326,27 @@ function parseCsv(text: string): { headers: string[]; rows: Record<string, strin
   return { headers, rows };
 }
 
+async function parseSpreadsheetFile(file: File): Promise<{ headers: string[]; rows: Record<string, string>[] }> {
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(new Uint8Array(buf), { type: "array", cellText: true, cellDates: false });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const json = XLSX.utils.sheet_to_json<unknown[]>(sheet, { header: 1, defval: "" });
+  if (json.length < 2) return { headers: [], rows: [] };
+  const allHeaders = (json[0] as unknown[]).map((h) => String(h ?? "").trim());
+  const headers = allHeaders.filter((h) => h !== "");
+  const rows = (json.slice(1) as unknown[][]).map((vals) =>
+    Object.fromEntries(headers.map((h) => [h, String(vals[allHeaders.indexOf(h)] ?? "").trim()]))
+  );
+  return { headers, rows };
+}
+
+async function parseSpreadsheetFileAsCSV(file: File): Promise<string> {
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(new Uint8Array(buf), { type: "array" });
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_csv(sheet);
+}
+
 const REQUIRED_FIELDS = ["driverProfileId", "periodStart", "periodEnd"] as const;
 const OPTIONAL_FIELDS = [
   "grossAmountCents", "deductionsCents", "incentivesCents",
@@ -345,6 +367,30 @@ const FIELD_LABELS: Record<EarningsField, string> = {
   tripCount: "Trip Count",
   notes: "Notes",
 };
+
+const FIELD_ALIASES: Record<EarningsField, string[]> = {
+  driverProfileId: ["driverprofileid", "driverid", "profileid", "driver_profile_id", "driver_id"],
+  periodStart:     ["periodstart", "startdate", "start_date", "period_start", "fromdate", "from"],
+  periodEnd:       ["periodend", "enddate", "end_date", "period_end", "todate", "to"],
+  grossAmountCents:["grossamountcents", "grossamount", "gross_amount", "gross", "grossearnings"],
+  deductionsCents: ["deductionscents", "deductions", "deduction"],
+  incentivesCents: ["incentivescents", "incentives", "incentive", "bonus"],
+  penaltiesCents:  ["penaltiescents", "penalties", "penalty", "fine"],
+  netAmountCents:  ["netamountcents", "netamount", "net_amount", "netpay", "net_pay", "net", "nett"],
+  tripCount:       ["tripcount", "trips", "trip_count", "tripstaken"],
+  notes:           ["notes", "note", "comments", "comment", "remarks"],
+};
+
+function autoMapHeaders(headers: string[]): Record<EarningsField, string> {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return Object.fromEntries(
+    ALL_FIELDS.map((field) => {
+      const aliases = FIELD_ALIASES[field];
+      const matched = headers.find((h) => aliases.some((a) => norm(h) === a || norm(h).includes(a)));
+      return [field, matched ?? ""];
+    })
+  ) as Record<EarningsField, string>;
+}
 
 function buildEarningsInput(row: Record<string, string>, mapping: Record<EarningsField, string>): { data: EarningsInput | null; error: string | null } {
   const get = (field: EarningsField) => row[mapping[field]] ?? "";
@@ -403,21 +449,21 @@ function CsvImportWizard({ onClose, onCreate }: { onClose: () => void; onCreate:
   const [mapping, setMapping] = useState<Record<EarningsField, string>>({} as Record<EarningsField, string>);
   const [importResults, setImportResults] = useState<{ success: number; errors: Array<{ row: number; data: Record<string, string>; error: string }> }>({ success: 0, errors: [] });
 
-  const handleFileSelect = () => {
+  const handleFileSelect = async () => {
     const file = fileInputRef.current?.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const { headers, rows } = parseCsv(text);
-      if (headers.length === 0) { toast({ title: "Invalid CSV — no headers detected", variant: "destructive" }); return; }
+    try {
+      const { headers, rows } = await parseSpreadsheetFile(file);
+      if (headers.length === 0) { toast({ title: "No columns detected in this file", variant: "destructive" }); return; }
       setCsvHeaders(headers);
       setCsvRows(rows);
-      const autoMap = Object.fromEntries(ALL_FIELDS.map((f) => [f, headers.find((h) => h.toLowerCase() === f.toLowerCase()) ?? ""]));
-      setMapping(autoMap as Record<EarningsField, string>);
-      setStep("map");
-    };
-    reader.readAsText(file);
+      const autoMap = autoMapHeaders(headers);
+      setMapping(autoMap);
+      const allRequiredMapped = REQUIRED_FIELDS.every((f) => !!autoMap[f]);
+      setStep(allRequiredMapped ? "preview" : "map");
+    } catch (err) {
+      toast({ title: "Failed to read file", description: (err as Error).message, variant: "destructive" });
+    }
   };
 
   const handleImport = useCallback(async () => {
@@ -440,11 +486,11 @@ function CsvImportWizard({ onClose, onCreate }: { onClose: () => void; onCreate:
     <div className="min-h-[360px] flex flex-col">
       {step === "upload" && (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 py-8">
-          <input type="file" accept=".csv" ref={fileInputRef} className="hidden" onChange={handleFileSelect} />
+          <input type="file" accept=".csv,.xlsx,.xls" ref={fileInputRef} className="hidden" onChange={handleFileSelect} />
           <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full h-40 border-dashed border-2 border-gray-300 rounded-xl bg-gray-50 flex flex-col items-center justify-center gap-2 hover:bg-gray-100 hover:border-[#3DB324] transition-colors">
             <Upload className="h-8 w-8 text-gray-400" />
-            <span className="text-sm font-semibold text-gray-600">Click to upload CSV file</span>
-            <span className="text-xs text-gray-400">Expected: driverProfileId, periodStart, periodEnd, amounts in cents</span>
+            <span className="text-sm font-semibold text-gray-600">Click to upload CSV or XLSX file</span>
+            <span className="text-xs text-gray-400">Columns auto-detected — required: driverProfileId, periodStart, periodEnd</span>
           </button>
           <Button variant="outline" size="sm" onClick={() => {
             const sample = ["driverProfileId,periodStart,periodEnd,grossAmountCents,deductionsCents,incentivesCents,penaltiesCents,tripCount", "dp_abc123,2026-05-01,2026-05-07,120000,15000,5000,0,42"].join("\n");
@@ -456,7 +502,10 @@ function CsvImportWizard({ onClose, onCreate }: { onClose: () => void; onCreate:
 
       {step === "map" && (
         <div className="flex-1 space-y-4">
-          <p className="text-sm text-gray-500"><strong>{csvHeaders.length}</strong> columns · <strong>{csvRows.length}</strong> data rows detected. Map fields below:</p>
+          <p className="text-sm text-gray-500">
+            <strong>{csvHeaders.length}</strong> columns · <strong>{csvRows.length}</strong> rows detected.
+            {" "}Columns were auto-matched — adjust any incorrect mappings below:
+          </p>
           <div className="grid grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
             {ALL_FIELDS.map((field) => (
               <div key={field} className="space-y-1">
@@ -502,7 +551,7 @@ function CsvImportWizard({ onClose, onCreate }: { onClose: () => void; onCreate:
             </Table>
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setStep("map")}>Adjust Mapping</Button>
+            <Button variant="outline" onClick={() => setStep("map")}>Adjust Columns</Button>
             <Button className="ml-auto bg-[#3DB324] hover:bg-[#329b1d]" onClick={handleImport}>Import All {csvRows.length} Rows</Button>
           </div>
         </div>
@@ -687,7 +736,7 @@ export default function EarningsPage() {
           </Dialog>
           <Dialog open={csvOpen} onOpenChange={setCsvOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" data-testid="btn-import-csv"><Upload className="mr-2 h-4 w-4" /> Import CSV</Button>
+              <Button variant="outline" data-testid="btn-import-csv"><Upload className="mr-2 h-4 w-4" /> Import Spreadsheet</Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
               <DialogHeader><DialogTitle>Import Earnings via CSV</DialogTitle></DialogHeader>
