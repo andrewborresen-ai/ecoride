@@ -6,3 +6,27 @@ id = "N3yTVVM6HT_yLEoPNVu36"
 uri = "file://artifacts/driver/assets/images/icon.png"
 type = "image"
 title = "ecoride driver app icon"
+
+[[generated]]
+id = "zSs43pYATYpQuRrDHwY56"
+uri = "file://attached_assets/sample_profile_photo.png"
+type = "image"
+title = "driver profile photo"
+
+[[generated]]
+id = "GTBB5daO9wTVvDmYS8kjm"
+uri = "file://attached_assets/sample_id_document.png"
+type = "image"
+title = "SA ID document"
+
+[[generated]]
+id = "dzc_rZxencuK0N4g8ADde"
+uri = "file://attached_assets/sample_drivers_license.png"
+type = "image"
+title = "SA drivers license card"
+
+[[generated]]
+id = "BmoiTKoDms70nl-BCEdgB"
+uri = "file://attached_assets/sample_pdp_certificate.png"
+type = "image"
+title = "PDP certificate document"
