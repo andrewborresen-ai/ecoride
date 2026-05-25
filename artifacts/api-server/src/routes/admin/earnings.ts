@@ -248,6 +248,7 @@ router.post("/v1/admin/earnings/import-csv", requireAdmin, async (req: Authentic
 
 const PayrollRowSchema = z.object({
   driverName: z.string().min(1),
+  resolvedProfileId: z.string().optional(),
   grossAmountCents: z.number().int().default(0),
   deductionsCents: z.number().int().min(0).default(0),
   incentivesCents: z.number().int().min(0).default(0),
@@ -289,22 +290,30 @@ router.post("/v1/admin/earnings/import-payroll-sheet", requireAdmin, async (req:
   const errors: { driverName: string; error: string }[] = [];
 
   for (const row of rows) {
-    const csvName = normStr(row.driverName);
+    let profile: (typeof allProfiles)[0] | undefined;
 
-    const profile = allProfiles.find((p) => {
-      const fn = normStr(p.firstName);
-      const ln = normStr(p.lastName);
-      return (
-        `${fn} ${ln}`.trim() === csvName ||
-        `${ln} ${fn}`.trim() === csvName ||
-        fn === csvName ||
-        ln === csvName
-      );
-    });
-
-    if (!profile) {
-      unmatched.push(row.driverName);
-      continue;
+    if (row.resolvedProfileId) {
+      profile = allProfiles.find((p) => p.id === row.resolvedProfileId);
+      if (!profile) {
+        errors.push({ driverName: row.driverName, error: `Profile ID ${row.resolvedProfileId} not found` });
+        continue;
+      }
+    } else {
+      const csvName = normStr(row.driverName);
+      profile = allProfiles.find((p) => {
+        const fn = normStr(p.firstName);
+        const ln = normStr(p.lastName);
+        return (
+          `${fn} ${ln}`.trim() === csvName ||
+          `${ln} ${fn}`.trim() === csvName ||
+          fn === csvName ||
+          ln === csvName
+        );
+      });
+      if (!profile) {
+        unmatched.push(row.driverName);
+        continue;
+      }
     }
 
     try {

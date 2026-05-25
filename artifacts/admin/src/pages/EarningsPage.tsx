@@ -5,6 +5,7 @@ import {
   useAdminCreateEarnings,
   useAdminUpdateEarnings,
   useAdminPublishEarnings,
+  useAdminListDrivers,
   getAdminListEarningsQueryKey,
 } from "@workspace/api-client-react";
 import type { EarningsInput, EarningsUpdate } from "@workspace/api-client-react";
@@ -45,6 +46,7 @@ const fmt = (cents: number) => `R ${(cents / 100).toFixed(2)}`;
 
 interface PayrollRow {
   driverName: string;
+  resolvedProfileId?: string;
   grossAmountCents: number;
   deductionsCents: number;
   incentivesCents: number;
@@ -53,13 +55,38 @@ interface PayrollRow {
   tripCount: number;
 }
 
+interface DbDriverProfile {
+  id: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  status?: string | null;
+}
+
 interface PayrollImportResult {
   imported: number;
   unmatched: string[];
   errors: { driverName: string; error: string }[];
 }
 
-type PayrollStep = "upload" | "period" | "preview" | "importing" | "done";
+type PayrollStep = "upload" | "namemap" | "period" | "preview" | "importing" | "done";
+
+const PAYROLL_SKIP = "__skip__";
+
+function fuzzyMatchDriverId(csvName: string, profiles: DbDriverProfile[]): string {
+  const norm = (s: string) => (s ?? "").toUpperCase().replace(/\s+/g, " ").trim();
+  const n = norm(csvName);
+  const m = profiles.find((p) => {
+    const fn = norm(p.firstName ?? "");
+    const ln = norm(p.lastName ?? "");
+    return (
+      `${fn} ${ln}`.trim() === n ||
+      `${ln} ${fn}`.trim() === n ||
+      (fn && fn === n) ||
+      (ln && ln === n)
+    );
+  });
+  return m?.id ?? "";
+}
 
 function splitCsvRowPayroll(line: string): string[] {
   const result: string[] = [];
@@ -137,10 +164,14 @@ function PayrollImportWizard({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<PayrollStep>("upload");
   const [parsedRows, setParsedRows] = useState<PayrollRow[]>([]);
+  const [nameMap, setNameMap] = useState<Record<string, string>>({});
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
   const [result, setResult] = useState<PayrollImportResult | null>(null);
   const { toast } = useToast();
+
+  const { data: driversRes } = useAdminListDrivers({ status: undefined });
+  const dbDrivers = ((driversRes as { data?: DbDriverProfile[] } | undefined)?.data ?? []) as DbDriverProfile[];
 
   const handleFileSelect = async () => {
     const file = fileInputRef.current?.files?.[0];
@@ -150,30 +181,41 @@ function PayrollImportWizard({
       const rows = parsePayrollSheet(text);
       if (rows.length === 0) {
         toast({ title: "No driver rows detected", description: "Check the file has a 'Driver' and 'Gross Earnings (R)' header row.", variant: "destructive" });
+        if (fileInputRef.current) fileInputRef.current.value = "";
         return;
       }
+      const initialMap: Record<string, string> = {};
+      for (const row of rows) {
+        initialMap[row.driverName] = fuzzyMatchDriverId(row.driverName, dbDrivers);
+      }
       setParsedRows(rows);
-      setStep("period");
+      setNameMap(initialMap);
+      setStep("namemap");
     } catch (err) {
       toast({ title: "Failed to read file", description: (err as Error).message, variant: "destructive" });
     }
   };
 
+  const matchedCount = parsedRows.filter((r) => !!nameMap[r.driverName]).length;
+
   const handleImport = useCallback(async () => {
     if (!periodStart || !periodEnd) return;
     setStep("importing");
+    const rowsToImport = parsedRows
+      .filter((r) => !!nameMap[r.driverName])
+      .map((r) => ({ ...r, resolvedProfileId: nameMap[r.driverName] }));
     try {
-      const res = await onImport(parsedRows, new Date(periodStart).toISOString(), new Date(periodEnd).toISOString());
+      const res = await onImport(rowsToImport, new Date(periodStart).toISOString(), new Date(periodEnd).toISOString());
       setResult(res);
       setStep("done");
     } catch (err) {
       toast({ title: "Import failed", description: (err as Error).message, variant: "destructive" });
       setStep("preview");
     }
-  }, [parsedRows, periodStart, periodEnd, onImport, toast]);
+  }, [parsedRows, nameMap, periodStart, periodEnd, onImport, toast]);
 
   return (
-    <div className="min-h-[360px] flex flex-col">
+    <div className="min-h-[380px] flex flex-col">
       {step === "upload" && (
         <div className="flex-1 flex flex-col items-center justify-center gap-4 py-8">
           <input type="file" accept=".csv,.xlsx,.xls" ref={fileInputRef} className="hidden" onChange={handleFileSelect} />
@@ -187,9 +229,80 @@ function PayrollImportWizard({
             <span className="text-xs text-gray-400">Accepts .xlsx or .csv — exports directly from the earnings spreadsheet</span>
           </button>
           <p className="text-xs text-gray-400 text-center max-w-sm">
-            Expected columns: <strong>Driver</strong>, Gross Earnings (R), Net Pay (R), Trips, Bonus, Net After Bonus.<br />
-            Drivers are matched by first and last name.
+            Expected columns: <strong>Driver</strong>, Gross Earnings (R), Net Pay (R), Trips, Bonus, Net After Bonus.
           </p>
+        </div>
+      )}
+
+      {step === "namemap" && (
+        <div className="flex-1 flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-gray-600 font-medium">Match CSV names to database drivers</p>
+            <p className="text-xs text-gray-400">
+              <span className="text-[#3DB324] font-semibold">{matchedCount}</span> matched ·{" "}
+              <span className="text-amber-600 font-semibold">{parsedRows.length - matchedCount}</span> unmatched
+            </p>
+          </div>
+          <div className="overflow-auto rounded-lg border text-xs max-h-80 flex-1">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-5/12">CSV Name</TableHead>
+                  <TableHead className="w-6/12">Database Driver</TableHead>
+                  <TableHead className="w-1/12"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {parsedRows.map((row) => {
+                  const val = nameMap[row.driverName] ?? "";
+                  const matched = !!val;
+                  return (
+                    <TableRow key={row.driverName}>
+                      <TableCell className="font-medium py-1.5">{row.driverName}</TableCell>
+                      <TableCell className="py-1.5">
+                        <Select
+                          value={val || PAYROLL_SKIP}
+                          onValueChange={(v) =>
+                            setNameMap((prev) => ({ ...prev, [row.driverName]: v === PAYROLL_SKIP ? "" : v }))
+                          }
+                        >
+                          <SelectTrigger className={`h-7 text-xs ${!matched ? "border-amber-400 text-amber-700" : "border-[#3DB324]/40 text-gray-800"}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={PAYROLL_SKIP}>— skip this driver —</SelectItem>
+                            {dbDrivers.map((d) => (
+                              <SelectItem key={d.id} value={d.id}>
+                                {[d.firstName, d.lastName].filter(Boolean).join(" ") || d.id}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell className="py-1.5 text-center">
+                        {matched
+                          ? <Check className="h-3.5 w-3.5 text-[#3DB324] inline" />
+                          : <span className="text-amber-500 text-base leading-none">!</span>}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <Button variant="outline" size="sm" onClick={() => { setStep("upload"); if (fileInputRef.current) fileInputRef.current.value = ""; }}>
+              Back
+            </Button>
+            <Button
+              size="sm"
+              className="ml-auto bg-[#3DB324] hover:bg-[#329b1d]"
+              disabled={matchedCount === 0}
+              onClick={() => setStep("period")}
+            >
+              Next — import {matchedCount} driver{matchedCount !== 1 ? "s" : ""}
+            </Button>
+          </div>
         </div>
       )}
 
@@ -197,9 +310,8 @@ function PayrollImportWizard({
         <div className="flex-1 space-y-5">
           <div className="flex items-center gap-2 text-sm text-[#3DB324] font-medium">
             <Check className="h-4 w-4" />
-            {parsedRows.length} driver rows detected
+            {matchedCount} driver{matchedCount !== 1 ? "s" : ""} mapped — enter the pay period
           </div>
-          <p className="text-sm text-gray-600">Enter the pay period these earnings cover:</p>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label className="text-xs">Period Start *</Label>
@@ -211,16 +323,16 @@ function PayrollImportWizard({
             </div>
           </div>
           <div className="flex gap-2 pt-2">
-            <Button variant="outline" onClick={() => setStep("upload")}>Back</Button>
+            <Button variant="outline" onClick={() => setStep("namemap")}>Back</Button>
             <Button variant="outline" onClick={() => setStep("preview")} disabled={!periodStart || !periodEnd}>
-              Preview {parsedRows.length} rows
+              Preview
             </Button>
             <Button
               className="ml-auto bg-[#3DB324] hover:bg-[#329b1d]"
               disabled={!periodStart || !periodEnd}
               onClick={handleImport}
             >
-              Import {parsedRows.length} Drivers
+              Import {matchedCount} Drivers
             </Button>
           </div>
         </div>
@@ -229,7 +341,8 @@ function PayrollImportWizard({
       {step === "preview" && (
         <div className="flex-1 space-y-3">
           <p className="text-sm text-gray-500">
-            <strong>{parsedRows.length}</strong> drivers parsed — matched by name on import.
+            <strong>{matchedCount}</strong> driver{matchedCount !== 1 ? "s" : ""} will be imported for{" "}
+            <strong>{periodStart}</strong> → <strong>{periodEnd}</strong>
           </p>
           <div className="overflow-auto rounded-lg border text-xs max-h-72">
             <Table>
@@ -243,7 +356,7 @@ function PayrollImportWizard({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {parsedRows.map((row, i) => (
+                {parsedRows.filter((r) => !!nameMap[r.driverName]).map((row, i) => (
                   <TableRow key={i}>
                     <TableCell className="font-medium">{row.driverName}</TableCell>
                     <TableCell className="text-right">{fmt(row.grossAmountCents)}</TableCell>
@@ -258,7 +371,7 @@ function PayrollImportWizard({
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => setStep("period")}>Back</Button>
             <Button className="ml-auto bg-[#3DB324] hover:bg-[#329b1d]" onClick={handleImport}>
-              Import All {parsedRows.length} Rows
+              Import {matchedCount} Rows
             </Button>
           </div>
         </div>
