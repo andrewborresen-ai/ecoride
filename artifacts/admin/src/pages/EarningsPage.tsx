@@ -498,10 +498,10 @@ export default function EarningsPage() {
         <div className="flex gap-2">
           <Dialog open={csvOpen} onOpenChange={setCsvOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" data-testid="btn-import-csv"><FileSpreadsheet className="mr-2 h-4 w-4" /> Import Payroll Sheet</Button>
+              <Button variant="outline" data-testid="btn-import-csv"><FileSpreadsheet className="mr-2 h-4 w-4" /> Import Payout Sheet</Button>
             </DialogTrigger>
             <DialogContent className="max-w-2xl">
-              <DialogHeader><DialogTitle>Import Weekly Payroll Sheet</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>Import Weekly Payout Sheet</DialogTitle></DialogHeader>
               <SpreadsheetImportDialog onClose={() => { setCsvOpen(false); invalidate(); }} />
             </DialogContent>
           </Dialog>
