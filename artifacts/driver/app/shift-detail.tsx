@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import {
-  View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator, Alert, Platform,
+  View, Text, Pressable, StyleSheet, ScrollView, ActivityIndicator, Alert, Platform, RefreshControl,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,16 +16,19 @@ import {
 import { apiData } from "@/types/api";
 import type { Allocation } from "@/types/api";
 
-function formatDateTime(dateStr: string) {
-  const d = new Date(dateStr);
-  return d.toLocaleDateString("en-ZA", {
-    weekday: "long", day: "numeric", month: "long", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
+function formatDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString("en-ZA", {
+    weekday: "short", day: "numeric", month: "short", year: "numeric",
   });
 }
 
 function formatTime(dateStr: string) {
   return new Date(dateStr).toLocaleTimeString("en-ZA", { hour: "2-digit", minute: "2-digit" });
+}
+
+function formatDateShort(dateStr: string) {
+  const d = new Date(dateStr);
+  return `${formatDate(dateStr)}, ${formatTime(dateStr)}`;
 }
 
 export default function ShiftDetailScreen() {
@@ -38,6 +41,7 @@ export default function ShiftDetailScreen() {
     query: {
       enabled: !!id,
       queryKey: getGetMyAllocationsQueryKey(),
+      refetchInterval: 15000,
     },
   });
   const allocations = apiData<Allocation[]>(allocationsQuery.data) ?? [];
@@ -45,6 +49,7 @@ export default function ShiftDetailScreen() {
 
   const { mutateAsync: requestUnlock } = useRequestVehicleUnlock();
   const [unlocking, setUnlocking] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [sessionUnlockResult, setSessionUnlockResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const shift = allocation?.shift;
@@ -54,7 +59,13 @@ export default function ShiftDetailScreen() {
   const now = new Date();
   const shiftStarted = shift?.startTime ? new Date(shift.startTime) <= now : false;
   const shiftEnded = shift?.endTime ? new Date(shift.endTime) < now : false;
-  const canUnlock = isConfirmed && !!assignment?.id;
+  const canUnlock = isConfirmed && !!assignment?.id && shiftStarted && !shiftEnded;
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await allocationsQuery.refetch();
+    setRefreshing(false);
+  };
 
   const handleUnlock = () => {
     if (!assignment?.id) return;
@@ -126,10 +137,16 @@ export default function ShiftDetailScreen() {
       <ScrollView
         contentContainerStyle={[s.content, { paddingBottom: insets.bottom + 32 }]}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.primary} />
+        }
       >
+        {/* Shift info card */}
         <View style={[s.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={s.cardHeaderRow}>
-            <Text style={[s.shiftTitle, { color: colors.foreground }]}>{shift?.title ?? "Shift"}</Text>
+            <Text style={[s.shiftTitle, { color: colors.foreground }]} numberOfLines={2}>
+              {shift?.title ?? "Shift"}
+            </Text>
             <StatusBadge status={allocation.status} size="sm" />
           </View>
           {shift?.fleetType && (
@@ -139,15 +156,21 @@ export default function ShiftDetailScreen() {
           )}
 
           {shift?.startTime && (
-            <View style={s.timeSection}>
+            <View style={s.timeRow}>
               <View style={s.timeBlock}>
                 <Text style={[s.timeLabel, { color: colors.mutedForeground }]}>Start</Text>
-                <Text style={[s.timeValue, { color: colors.foreground }]}>{formatDateTime(shift.startTime)}</Text>
+                <Text style={[s.timeDate, { color: colors.foreground }]}>{formatDate(shift.startTime)}</Text>
+                <Text style={[s.timeHour, { color: colors.primary }]}>{formatTime(shift.startTime)}</Text>
               </View>
-              <View style={[s.divider, { backgroundColor: colors.border }]} />
+              <Feather name="arrow-right" size={16} color={colors.mutedForeground} />
               <View style={s.timeBlock}>
                 <Text style={[s.timeLabel, { color: colors.mutedForeground }]}>End</Text>
-                <Text style={[s.timeValue, { color: colors.foreground }]}>{shift.endTime ? formatDateTime(shift.endTime) : "—"}</Text>
+                <Text style={[s.timeDate, { color: colors.foreground }]}>
+                  {shift.endTime ? formatDate(shift.endTime) : "—"}
+                </Text>
+                <Text style={[s.timeHour, { color: colors.primary }]}>
+                  {shift.endTime ? formatTime(shift.endTime) : ""}
+                </Text>
               </View>
             </View>
           )}
@@ -157,10 +180,11 @@ export default function ShiftDetailScreen() {
           ) : null}
         </View>
 
+        {/* Vehicle card — confirmed + assigned */}
         {isConfirmed && vehicle && (
           <View style={[s.vehicleCard, { backgroundColor: colors.primary }]}>
             <View style={s.vehicleCardHeader}>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={s.vehicleLabel}>Assigned Vehicle</Text>
                 <Text style={s.vehicleReg}>{vehicle.registrationNumber}</Text>
                 <Text style={s.vehicleMeta}>
@@ -215,7 +239,7 @@ export default function ShiftDetailScreen() {
             {isConfirmed && !canUnlock && (
               <Text style={s.unlockNote}>
                 {shiftEnded
-                  ? "Shift has ended — unlock not available"
+                  ? "Shift has ended"
                   : !shiftStarted
                   ? `Unlock available at ${shift?.startTime ? formatTime(shift.startTime) : "shift start"}`
                   : "Vehicle unlock not available"}
@@ -224,22 +248,35 @@ export default function ShiftDetailScreen() {
           </View>
         )}
 
+        {/* No vehicle yet */}
         {isConfirmed && !vehicle && (
           <View style={[s.noVehicleCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
-            <Feather name="truck" size={22} color={colors.mutedForeground} />
-            <Text style={[s.noVehicleText, { color: colors.mutedForeground }]}>
-              No vehicle assigned yet — check back closer to the shift
-            </Text>
+            <Feather name="truck" size={20} color={colors.mutedForeground} />
+            <View style={{ flex: 1 }}>
+              <Text style={[s.noVehicleText, { color: colors.mutedForeground }]}>
+                No vehicle assigned yet
+              </Text>
+              <Text style={[s.noVehicleHint, { color: colors.mutedForeground }]}>
+                Pull down to refresh — updates every 15 seconds
+              </Text>
+            </View>
           </View>
         )}
 
+        {/* Allocation info */}
         <View style={[s.infoCard, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[s.infoTitle, { color: colors.mutedForeground }]}>ALLOCATION INFO</Text>
-          <View style={s.infoRow}>
+
+          <View style={s.infoBlock}>
             <Text style={[s.infoLabel, { color: colors.mutedForeground }]}>Requested</Text>
-            <Text style={[s.infoValue, { color: colors.foreground }]}>{formatDateTime(allocation.requestedAt)}</Text>
+            <Text style={[s.infoValue, { color: colors.foreground }]}>
+              {formatDateShort(allocation.requestedAt)}
+            </Text>
           </View>
-          <View style={s.infoRow}>
+
+          <View style={[s.divider, { backgroundColor: colors.border }]} />
+
+          <View style={s.infoRowStatus}>
             <Text style={[s.infoLabel, { color: colors.mutedForeground }]}>Status</Text>
             <StatusBadge status={allocation.status} size="sm" />
           </View>
@@ -255,19 +292,22 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     header: { paddingHorizontal: 20, paddingBottom: 12, flexDirection: "row", alignItems: "center", gap: 12 },
     backBtn: { padding: 4 },
     headerTitle: { fontSize: 20, fontFamily: "Inter_700Bold" },
-    content: { paddingHorizontal: 20, paddingTop: 8, gap: 12 },
-    card: { borderRadius: 16, borderWidth: 1, padding: 16, gap: 10 },
-    cardHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
-    shiftTitle: { fontSize: 18, fontFamily: "Inter_700Bold", flex: 1, marginRight: 8 },
-    meta: { fontSize: 13, fontFamily: "Inter_400Regular" },
-    timeSection: { gap: 8, marginTop: 4 },
+    content: { paddingHorizontal: 16, paddingTop: 8, gap: 12 },
+
+    card: { borderRadius: 16, borderWidth: 1, padding: 16, gap: 12 },
+    cardHeaderRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 8 },
+    shiftTitle: { fontSize: 18, fontFamily: "Inter_700Bold", flex: 1 },
+    meta: { fontSize: 12, fontFamily: "Inter_400Regular" },
+
+    timeRow: { flexDirection: "row", alignItems: "center", gap: 16 },
     timeBlock: { gap: 2 },
     timeLabel: { fontSize: 11, fontFamily: "Inter_400Regular" },
-    timeValue: { fontSize: 14, fontFamily: "Inter_500Medium" },
-    divider: { height: 1 },
+    timeDate: { fontSize: 13, fontFamily: "Inter_500Medium" },
+    timeHour: { fontSize: 16, fontFamily: "Inter_700Bold" },
     description: { fontSize: 13, fontFamily: "Inter_400Regular", lineHeight: 18 },
+
     vehicleCard: { borderRadius: 16, padding: 18, gap: 12 },
-    vehicleCardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+    vehicleCardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 8 },
     vehicleLabel: { color: "rgba(255,255,255,0.75)", fontSize: 11, fontFamily: "Inter_500Medium" },
     vehicleReg: { color: "#fff", fontSize: 24, fontFamily: "Inter_700Bold", marginTop: 2 },
     vehicleMeta: { color: "rgba(255,255,255,0.75)", fontSize: 13, fontFamily: "Inter_400Regular" },
@@ -282,13 +322,19 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     persistedUnlockLabel: { color: "rgba(255,255,255,0.65)", fontSize: 11, fontFamily: "Inter_400Regular" },
     persistedUnlockResult: { color: "#fff", fontSize: 13, fontFamily: "Inter_500Medium" },
     persistedUnlockAt: { color: "rgba(255,255,255,0.65)", fontSize: 11, fontFamily: "Inter_400Regular" },
+
     noVehicleCard: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14, borderWidth: 1, borderStyle: "dashed", padding: 16 },
-    noVehicleText: { flex: 1, fontSize: 13, fontFamily: "Inter_400Regular" },
-    infoCard: { borderRadius: 14, borderWidth: 1, padding: 16, gap: 10 },
-    infoTitle: { fontSize: 11, fontFamily: "Inter_600SemiBold", letterSpacing: 1 },
-    infoRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-    infoLabel: { fontSize: 13, fontFamily: "Inter_400Regular" },
-    infoValue: { fontSize: 13, fontFamily: "Inter_500Medium" },
+    noVehicleText: { fontSize: 14, fontFamily: "Inter_500Medium", marginBottom: 2 },
+    noVehicleHint: { fontSize: 11, fontFamily: "Inter_400Regular", opacity: 0.7 },
+
+    infoCard: { borderRadius: 14, borderWidth: 1, padding: 16, gap: 12 },
+    infoTitle: { fontSize: 10, fontFamily: "Inter_600SemiBold", letterSpacing: 1.2 },
+    infoBlock: { gap: 3 },
+    infoLabel: { fontSize: 12, fontFamily: "Inter_400Regular" },
+    infoValue: { fontSize: 14, fontFamily: "Inter_500Medium", flexShrink: 1 },
+    infoRowStatus: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    divider: { height: 1 },
+
     emptyState: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
     emptyText: { fontSize: 15, fontFamily: "Inter_400Regular" },
   });
