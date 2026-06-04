@@ -108,16 +108,35 @@ router.patch("/v1/admin/vehicles/:vehicleId", requireAdmin, async (req: Authenti
 });
 
 router.get("/v1/admin/vehicle-assignments", requireAdmin, async (req: AuthenticatedRequest, res): Promise<void> => {
-  let query = db.select().from(vehicleAssignmentsTable).$dynamic();
-
   const conditions: ReturnType<typeof eq>[] = [];
   if (req.query.status) conditions.push(eq(vehicleAssignmentsTable.status, req.query.status as string));
   if (req.query.shiftId) conditions.push(eq(vehicleAssignmentsTable.shiftId, req.query.shiftId as string));
   if (req.query.driverProfileId) conditions.push(eq(vehicleAssignmentsTable.driverProfileId, req.query.driverProfileId as string));
 
-  if (conditions.length > 0) query = query.where(and(...conditions));
+  let baseQuery = db
+    .select({
+      id: vehicleAssignmentsTable.id,
+      vehicleId: vehicleAssignmentsTable.vehicleId,
+      driverProfileId: vehicleAssignmentsTable.driverProfileId,
+      shiftId: vehicleAssignmentsTable.shiftId,
+      assignmentStart: vehicleAssignmentsTable.assignmentStart,
+      assignmentEnd: vehicleAssignmentsTable.assignmentEnd,
+      status: vehicleAssignmentsTable.status,
+      lastUnlockAt: vehicleAssignmentsTable.lastUnlockAt,
+      lastUnlockResult: vehicleAssignmentsTable.lastUnlockResult,
+      registrationNumber: vehiclesTable.registrationNumber,
+      make: vehiclesTable.make,
+      model: vehiclesTable.model,
+      year: vehiclesTable.year,
+      fleetType: vehiclesTable.fleetType,
+    })
+    .from(vehicleAssignmentsTable)
+    .leftJoin(vehiclesTable, eq(vehicleAssignmentsTable.vehicleId, vehiclesTable.id))
+    .$dynamic();
 
-  const assignments = await query;
+  if (conditions.length > 0) baseQuery = baseQuery.where(and(...conditions));
+
+  const assignments = await baseQuery;
   res.json(ok(assignments));
 });
 

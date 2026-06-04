@@ -77,6 +77,11 @@ interface AssignmentItem {
   assignmentStart: string;
   assignmentEnd: string;
   status?: string;
+  registrationNumber?: string | null;
+  make?: string | null;
+  model?: string | null;
+  year?: number | null;
+  fleetType?: string | null;
 }
 
 interface EarningsItem {
@@ -514,7 +519,7 @@ export default function DriverDetailPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Vehicle ID</TableHead>
+                      <TableHead>Vehicle</TableHead>
                       <TableHead>Start</TableHead>
                       <TableHead>End</TableHead>
                       <TableHead>Status</TableHead>
@@ -523,7 +528,17 @@ export default function DriverDetailPage() {
                   <TableBody>
                     {assignments.map((a) => (
                       <TableRow key={a.id}>
-                        <TableCell className="font-mono text-xs">{a.vehicleId.slice(0, 10)}…</TableCell>
+                        <TableCell>
+                          <div className="font-semibold text-sm">{a.registrationNumber ?? a.vehicleId.slice(0, 10) + "…"}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {[a.year, a.make, a.model].filter(Boolean).join(" ")}
+                            {a.fleetType && (
+                              <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600 capitalize">
+                                {a.fleetType}
+                              </span>
+                            )}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-sm">{format(new Date(a.assignmentStart), "MMM d, yyyy HH:mm")}</TableCell>
                         <TableCell className="text-sm">{format(new Date(a.assignmentEnd), "MMM d, yyyy HH:mm")}</TableCell>
                         <TableCell>
