@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View, Text, Pressable, StyleSheet, FlatList, ActivityIndicator,
   Alert, RefreshControl, Platform, ScrollView,
@@ -65,6 +65,7 @@ export default function ShiftsScreen() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("available");
   const [dateFilter, setDateFilter] = useState<ShiftDateFilter>("thisWeek");
+  const [pendingShiftIds, setPendingShiftIds] = useState<Set<string>>(new Set());
 
   const isMyShiftsTab = activeTab !== "available";
 
@@ -118,18 +119,21 @@ export default function ShiftsScreen() {
       ? confirmedAllocations
       : pastAllocations;
 
-  const handleRequest = async (shiftId: string) => {
+  const handleRequest = useCallback(async (shiftId: string) => {
+    setPendingShiftIds((prev) => new Set(prev).add(shiftId));
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       await requestShift({ shiftId });
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      openShiftsQuery.refetch();
-      Alert.alert("Requested", "Shift request submitted. You'll be notified once confirmed.");
+      await Promise.all([openShiftsQuery.refetch(), myAllocationsQuery.refetch()]);
+      setActiveTab("requested");
     } catch (err: unknown) {
       const e = err as { response?: { data?: { error?: string } }; message?: string };
       Alert.alert("Request Failed", e?.response?.data?.error ?? e?.message ?? "Could not request shift.");
+    } finally {
+      setPendingShiftIds((prev) => { const next = new Set(prev); next.delete(shiftId); return next; });
     }
-  };
+  }, [requestShift, openShiftsQuery, myAllocationsQuery]);
 
   const handleCancel = (allocationId: string) => {
     Alert.alert("Cancel Request", "Are you sure you want to cancel this shift request?", [
@@ -189,13 +193,26 @@ export default function ShiftsScreen() {
       {item.description ? (
         <Text style={[s.description, { color: colors.mutedForeground }]}>{item.description}</Text>
       ) : null}
-      <Pressable
-        style={({ pressed }) => [s.requestBtn, { backgroundColor: colors.primary, opacity: pressed ? 0.85 : 1 }]}
-        onPress={() => handleRequest(item.id)}
-        testID={`request-shift-${item.id}`}
-      >
-        <Text style={s.requestBtnText}>Request Shift</Text>
-      </Pressable>
+      {(() => {
+        const isPending = pendingShiftIds.has(item.id);
+        return (
+          <Pressable
+            style={({ pressed }) => [
+              s.requestBtn,
+              { backgroundColor: isPending ? colors.primary + "99" : colors.primary, opacity: pressed && !isPending ? 0.85 : 1 },
+            ]}
+            onPress={() => !isPending && handleRequest(item.id)}
+            disabled={isPending}
+            testID={`request-shift-${item.id}`}
+          >
+            {isPending ? (
+              <ActivityIndicator color="#fff" size="small" />
+            ) : (
+              <Text style={s.requestBtnText}>Request Shift</Text>
+            )}
+          </Pressable>
+        );
+      })()}
     </View>
   );
 
