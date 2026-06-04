@@ -157,15 +157,17 @@ export default function DashboardScreen() {
             {vehicleAssignment ? (
               <View style={[s.vehicleCard, { backgroundColor: colors.primary }]}>
                 <View style={s.vehicleCardHeader}>
-                  <View>
+                  <View style={{ flex: 1, paddingRight: 10 }}>
                     <Text style={s.vehicleCardLabel}>Active Vehicle</Text>
-                    <Text style={s.vehicleCardReg}>{vehicleAssignment.vehicle.registrationNumber}</Text>
+                    <Text style={s.vehicleCardReg} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                      {vehicleAssignment.vehicle.registrationNumber}
+                    </Text>
                     <Text style={s.vehicleCardMeta}>
                       {[vehicleAssignment.vehicle.year, vehicleAssignment.vehicle.make, vehicleAssignment.vehicle.model]
                         .filter(Boolean).join(" ")}
                     </Text>
                   </View>
-                    <View style={{ alignItems: "flex-end", gap: 4 }}>
+                  <View style={{ alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
                     <View style={[s.vehicleTypeChip, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
                       <Feather name="zap" size={14} color="#fff" />
                       <Text style={s.vehicleTypeText}>{vehicleAssignment.vehicle.fleetType?.toUpperCase() ?? "EV"}</Text>
@@ -328,8 +330,8 @@ const makeStyles = (colors: ReturnType<typeof import("@/hooks/useColors").useCol
     vehicleCardMeta: { color: "rgba(255,255,255,0.75)", fontSize: 13, fontFamily: "Inter_400Regular", marginTop: 2 },
     vehicleTypeChip: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20 },
     vehicleTypeText: { color: "#fff", fontSize: 12, fontFamily: "Inter_600SemiBold" },
-    vehicleStatusChip: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 },
-    vehicleStatusText: { color: "#fff", fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.5 },
+    vehicleStatusChip: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+    vehicleStatusText: { color: "#fff", fontSize: 10, fontFamily: "Inter_700Bold", letterSpacing: 0.3 },
     shiftWindowRow: { flexDirection: "row", alignItems: "center", gap: 6 },
     shiftWindowText: { color: "rgba(255,255,255,0.85)", fontSize: 13, fontFamily: "Inter_400Regular", flex: 1 },
     liveChip: { backgroundColor: "rgba(255,255,255,0.25)", paddingHorizontal: 7, paddingVertical: 3, borderRadius: 10 },
