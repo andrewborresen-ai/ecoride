@@ -130,9 +130,9 @@ export default function DashboardScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={s.greetingRow}>
-          <View>
+          <View style={{ flex: 1, paddingRight: 10 }}>
             <Text style={[s.greeting, { color: colors.mutedForeground }]}>{getGreeting()},</Text>
-            <Text style={[s.name, { color: colors.foreground }]}>
+            <Text style={[s.name, { color: colors.foreground }]} numberOfLines={2}>
               {[profile?.firstName, profile?.lastName].filter(Boolean).join(" ") || "Driver"}
             </Text>
           </View>
@@ -245,7 +245,7 @@ export default function DashboardScreen() {
                 style={({ pressed }) => [s.statCard, { backgroundColor: colors.card, borderColor: colors.border, opacity: pressed ? 0.85 : 1 }]}
                 onPress={() => router.push("/(tabs)/earnings")}
               >
-                <Feather name="dollar-sign" size={18} color={colors.primary} />
+                <Feather name="trending-up" size={18} color={colors.primary} />
                 <Text style={[s.statValue, { color: colors.primary }]}>{formatZAR(weeklyEarnings)}</Text>
                 <Text style={[s.statLabel, { color: colors.mutedForeground }]}>This Week</Text>
               </Pressable>
@@ -293,7 +293,7 @@ export default function DashboardScreen() {
                     <Text style={[s.recentSeeAll, { color: colors.primary }]}>See all</Text>
                   </Pressable>
                 </View>
-                {latestNotifs.slice(0, 3).map((n) => (
+                {[...latestNotifs].sort((a, b) => new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()).slice(0, 3).map((n) => (
                   <View key={n.id} style={[s.recentItem, { borderTopColor: colors.border }]}>
                     <View style={[s.recentDot, { backgroundColor: n.status === "unread" ? colors.primary : colors.border }]} />
                     <View style={{ flex: 1 }}>
