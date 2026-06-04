@@ -8,6 +8,7 @@ import {
   useAdminDeclineAllocation,
   useAdminListVehicles,
   useAdminCreateVehicleAssignment,
+  useAdminListDrivers,
   getAdminGetShiftAllocationsQueryKey,
   getAdminListShiftsQueryKey,
 } from "@workspace/api-client-react";
@@ -71,6 +72,11 @@ export default function ShiftDetailPage() {
   const allocations = (allocsRes?.data as AllocationItem[] | undefined) ?? [];
 
   const { data: vehiclesRes } = useAdminListVehicles({ status: "available" });
+  const { data: driversRes } = useAdminListDrivers({ status: undefined });
+  const profileIdToName = Object.fromEntries(
+    ((driversRes as { data?: { id: string; firstName?: string | null; lastName?: string | null }[] } | undefined)?.data ?? [])
+      .map((d) => [d.id, [d.firstName, d.lastName].filter(Boolean).join(" ") || d.id])
+  );
   const vehicles = (vehiclesRes?.data as VehicleItem[] | undefined) ?? [];
 
   const { waitlistAllocation } = useAdminApi();
@@ -156,8 +162,8 @@ export default function ShiftDetailPage() {
   const renderAllocationRow = (a: AllocationItem, type: string) => (
     <TableRow key={a.id}>
       <TableCell>
-        <Link href={`/drivers/${a.driverProfileId}`} className="font-mono text-xs text-[#3DB324] hover:underline">
-          {a.driverProfileId.slice(0, 10)}…
+        <Link href={`/drivers/${a.driverProfileId}`} className="text-sm font-medium text-[#3DB324] hover:underline">
+          {profileIdToName[a.driverProfileId] ?? a.driverProfileId.slice(0, 10) + "…"}
         </Link>
       </TableCell>
       <TableCell><Badge variant="outline" className="capitalize">{a.status}</Badge></TableCell>
@@ -340,7 +346,7 @@ export default function ShiftDetailPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Driver ID</TableHead>
+                      <TableHead>Driver</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Vehicle</TableHead>
                       {tab === "confirmed" && <TableHead>Assign Vehicle</TableHead>}
