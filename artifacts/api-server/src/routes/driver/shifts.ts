@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { db, shiftsTable, shiftAllocationsTable, driverProfilesTable } from "@workspace/db";
-import { eq, and, gte, lte, or } from "drizzle-orm";
+import { db, shiftsTable, shiftAllocationsTable, driverProfilesTable, vehicleAssignmentsTable, vehiclesTable } from "@workspace/db";
+import { eq, and, gte, lte } from "drizzle-orm";
 import { requireDriver as requireAuth } from "../../middlewares/auth";
 import type { AuthenticatedRequest } from "../../middlewares/auth";
 import { ok } from "../../lib/response";
@@ -69,8 +69,73 @@ router.get("/v1/drivers/me/allocations", requireAuth, async (req: AuthenticatedR
   const conditions = [eq(shiftAllocationsTable.driverProfileId, profile.id)];
   if (req.query.status) conditions.push(eq(shiftAllocationsTable.status, req.query.status as string));
 
-  const allocations = await db.select().from(shiftAllocationsTable).where(and(...conditions));
-  res.json(ok(allocations));
+  const rows = await db
+    .select({
+      id: shiftAllocationsTable.id,
+      status: shiftAllocationsTable.status,
+      requestedAt: shiftAllocationsTable.requestedAt,
+      shiftId: shiftsTable.id,
+      shiftTitle: shiftsTable.title,
+      shiftDescription: shiftsTable.description,
+      shiftFleetType: shiftsTable.fleetType,
+      shiftStartTime: shiftsTable.startTime,
+      shiftEndTime: shiftsTable.endTime,
+      shiftStatus: shiftsTable.status,
+      vaId: vehicleAssignmentsTable.id,
+      vaStatus: vehicleAssignmentsTable.status,
+      vaLastUnlockAt: vehicleAssignmentsTable.lastUnlockAttemptAt,
+      vaLastUnlockResult: vehicleAssignmentsTable.lastUnlockStatus,
+      vId: vehiclesTable.id,
+      vRegistrationNumber: vehiclesTable.registrationNumber,
+      vMake: vehiclesTable.make,
+      vModel: vehiclesTable.model,
+      vYear: vehiclesTable.year,
+      vFleetType: vehiclesTable.fleetType,
+      vColour: vehiclesTable.colour,
+      vStatus: vehiclesTable.status,
+    })
+    .from(shiftAllocationsTable)
+    .innerJoin(shiftsTable, eq(shiftAllocationsTable.shiftId, shiftsTable.id))
+    .leftJoin(vehicleAssignmentsTable, eq(vehicleAssignmentsTable.shiftAllocationId, shiftAllocationsTable.id))
+    .leftJoin(vehiclesTable, eq(vehicleAssignmentsTable.vehicleId, vehiclesTable.id))
+    .where(and(...conditions));
+
+  const result = rows.map((row) => ({
+    id: row.id,
+    status: row.status,
+    requestedAt: row.requestedAt,
+    shift: {
+      id: row.shiftId,
+      title: row.shiftTitle,
+      description: row.shiftDescription,
+      fleetType: row.shiftFleetType,
+      startTime: row.shiftStartTime,
+      endTime: row.shiftEndTime,
+      status: row.shiftStatus,
+    },
+    vehicleAssignment: row.vaId
+      ? {
+          assignment: {
+            id: row.vaId,
+            status: row.vaStatus,
+            lastUnlockAt: row.vaLastUnlockAt?.toISOString() ?? null,
+            lastUnlockResult: row.vaLastUnlockResult ?? null,
+          },
+          vehicle: {
+            id: row.vId,
+            registrationNumber: row.vRegistrationNumber,
+            make: row.vMake,
+            model: row.vModel,
+            year: row.vYear,
+            fleetType: row.vFleetType,
+            colour: row.vColour,
+            status: row.vStatus,
+          },
+        }
+      : null,
+  }));
+
+  res.json(ok(result));
 });
 
 router.delete("/v1/drivers/me/allocations/:allocationId", requireAuth, async (req: AuthenticatedRequest, res): Promise<void> => {
