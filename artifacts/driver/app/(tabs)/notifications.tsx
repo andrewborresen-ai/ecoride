@@ -38,7 +38,9 @@ export default function NotificationsScreen() {
   const { data: notifsRes, isLoading, refetch } = useGetMyNotifications();
   const { mutateAsync: markRead } = useMarkNotificationRead();
 
-  const notifications: Notification[] = apiData<Notification[]>(notifsRes) ?? [];
+  const notifications: Notification[] = (apiData<Notification[]>(notifsRes) ?? [])
+    .slice()
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const unreadCount = notifications.filter((n) => n.status === "unread").length;
 
   const handleMarkRead = async (id: string, status: string) => {
