@@ -82,6 +82,7 @@ interface AssignmentItem {
   model?: string | null;
   year?: number | null;
   fleetType?: string | null;
+  shiftTitle?: string | null;
 }
 
 interface EarningsItem {
@@ -519,7 +520,8 @@ export default function DriverDetailPage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Vehicle</TableHead>
+                      <TableHead>Shift</TableHead>
+                      <TableHead>Vehicle Registration</TableHead>
                       <TableHead>Start</TableHead>
                       <TableHead>End</TableHead>
                       <TableHead>Status</TableHead>
@@ -528,6 +530,7 @@ export default function DriverDetailPage() {
                   <TableBody>
                     {assignments.map((a) => (
                       <TableRow key={a.id}>
+                        <TableCell className="text-sm font-medium">{a.shiftTitle ?? "—"}</TableCell>
                         <TableCell>
                           <div className="font-semibold text-sm">{a.registrationNumber ?? a.vehicleId.slice(0, 10) + "…"}</div>
                           <div className="text-xs text-gray-500 mt-0.5">

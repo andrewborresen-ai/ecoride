@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
-import { db, vehiclesTable, vehicleAssignmentsTable, driverProfilesTable, vehicleAccessEventsTable } from "@workspace/db";
+import { db, vehiclesTable, vehicleAssignmentsTable, driverProfilesTable, vehicleAccessEventsTable, shiftsTable } from "@workspace/db";
 import { eq, and, isNull, gte, lte } from "drizzle-orm";
 import { requireAdmin } from "../../middlewares/auth";
 import type { AuthenticatedRequest } from "../../middlewares/auth";
@@ -129,9 +129,11 @@ router.get("/v1/admin/vehicle-assignments", requireAdmin, async (req: Authentica
       model: vehiclesTable.model,
       year: vehiclesTable.year,
       fleetType: vehiclesTable.fleetType,
+      shiftTitle: shiftsTable.title,
     })
     .from(vehicleAssignmentsTable)
     .leftJoin(vehiclesTable, eq(vehicleAssignmentsTable.vehicleId, vehiclesTable.id))
+    .leftJoin(shiftsTable, eq(vehicleAssignmentsTable.shiftId, shiftsTable.id))
     .$dynamic();
 
   if (conditions.length > 0) baseQuery = baseQuery.where(and(...conditions));
